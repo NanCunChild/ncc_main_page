@@ -868,13 +868,34 @@ section {
 }
 .term-cursor {
   display: inline-block;
-  width: 0.55ch;
+  min-width: 0.55ch;
   height: 1em;
+  vertical-align: baseline;
+  white-space: pre;
+  font: inherit;
+  letter-spacing: inherit;
+  /* Block cursor with inverted character, blinks between filled and empty.
+     Phase 1 (0–49%): solid green block, dark glyph on top.
+     Phase 2 (50–99%): transparent block, glyph rendered as normal phosphor green. */
   background: var(--green);
+  color: var(--bg-0);
+  text-shadow: none;
   box-shadow: 0 0 8px var(--green-glow);
-  animation: blink 1s step-end infinite;
-  vertical-align: text-bottom;
-  /* No left margin — sits between pre and post directly */
+  animation: cursor-blink 1.06s step-end infinite;
+}
+@keyframes cursor-blink {
+  0%,  49%   {
+    background: var(--green);
+    color: var(--bg-0);
+    text-shadow: none;
+    box-shadow: 0 0 8px var(--green-glow);
+  }
+  50%, 100%  {
+    background: transparent;
+    color: var(--green);
+    text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
+    box-shadow: none;
+  }
 }
 
 /* ============================================================
@@ -1038,13 +1059,6 @@ body.is-root .crt-content {
   caret-color: transparent !important;
 }
 
-/* Terminal locked after root: cursor stops blinking, input cannot receive focus */
-.term-input.locked {
-  pointer-events: none;
-  opacity: 0.6;
-}
-body.terminal-locked .term-cursor { animation: none; opacity: 0.3; }
-
 /* ============================================================
    ROOT CELEBRATION OVERLAY
    ============================================================ */
@@ -1053,8 +1067,9 @@ body.terminal-locked .term-cursor { animation: none; opacity: 0.3; }
   position: fixed; inset: 0;
   z-index: 9500;
   background: rgba(0, 0, 0, 0.92);
-  pointer-events: none;
+  pointer-events: auto; /* clickable to dismiss */
   overflow: hidden;
+  cursor: pointer;
 }
 .root-overlay.active { display: block; animation: rootFadeIn 0.4s ease-out forwards; }
 @keyframes rootFadeIn {
@@ -1508,7 +1523,7 @@ body.terminal-locked .term-cursor { animation: none; opacity: 0.3; }
 </pre>
     <div class="big">ROOT ACCESS GRANTED</div>
     <div class="sub">UID 0 · GID 0 · UNRESTRICTED</div>
-    <div class="hint">terminal locked · type 'realboot' from a fresh session to escape into the real world · or click power to reset</div>
+    <div class="hint">press any key (or click) to dismiss · the terminal is yours</div>
   </div>
 </div>
 
@@ -1540,6 +1555,48 @@ const S = {
 };
 
 function homeDir(u){ return u === 'root' ? '/root' : '/home/' + u; }
+
+/* =============================================================
+   COOKIE STATE — obfuscated (not real crypto, just to keep
+   casual users from flipping it in DevTools by accident).
+   Used to remember whether this browser has already seen the
+   "first root" celebration so subsequent root events stay quiet.
+   ============================================================= */
+const COOKIE_NAME = 'phsphr_state';
+const COOKIE_DAYS = 365; // persistent across sessions; flip to 0 for session-only
+const _COOKIE_KEY = 'phosphor-' + (location.hostname || 'local') + '-v2';
+function _xor(s){
+  let out = '';
+  for (let i = 0; i < s.length; i++){
+    out += String.fromCharCode(s.charCodeAt(i) ^ _COOKIE_KEY.charCodeAt(i % _COOKIE_KEY.length));
+  }
+  return out;
+}
+function _cookieSet(name, val, days){
+  let exp = '';
+  if (days){
+    const d = new Date();
+    d.setTime(d.getTime() + days * 86400000);
+    exp = '; expires=' + d.toUTCString();
+  }
+  document.cookie = name + '=' + encodeURIComponent(val) + exp + '; path=/; SameSite=Lax';
+}
+function _cookieGet(name){
+  const all = document.cookie.split('; ');
+  for (const kv of all){
+    const eq = kv.indexOf('=');
+    if (eq > -1 && kv.slice(0, eq) === name) return decodeURIComponent(kv.slice(eq + 1));
+  }
+  return '';
+}
+function readState(){
+  const raw = _cookieGet(COOKIE_NAME);
+  if (!raw) return {};
+  try { return JSON.parse(_xor(atob(raw))); } catch(_) { return {}; }
+}
+function writeState(state){
+  try { _cookieSet(COOKIE_NAME, btoa(_xor(JSON.stringify(state))), COOKIE_DAYS); } catch(_) {}
+}
 
 /* =============================================================
    FAKE FILESYSTEM
@@ -1748,10 +1805,10 @@ powerBtn.addEventListener('click', () => {
 function powerOn(){
   if (S.isOn || S.booting) return;
   S.booting = true;
-  // Reset state on a fresh boot (escape post-root lock)
+  // Reset state on a fresh boot
   S.isRoot = false; S.isLocked = false; S.user = 'guest'; S.cwd = '/home/guest';
   S.history = []; S.histIdx = 0; S.awaitingInput = null;
-  document.body.classList.remove('is-root','terminal-locked');
+  document.body.classList.remove('is-root');
   hideRootOverlay();
 
   screenEl.classList.remove('off');
@@ -1769,7 +1826,7 @@ function powerOff(){
   screenEl.classList.remove('on');
   ledEl.classList.remove('on');
   contentEl.innerHTML = '';
-  document.body.classList.remove('is-root','terminal-locked');
+  document.body.classList.remove('is-root');
   hideRootOverlay();
 }
 
@@ -1876,6 +1933,7 @@ function showPrompt(){
   pre.className = 'typed-pre';
   const cursor = document.createElement('span');
   cursor.className = 'term-cursor';
+  cursor.textContent = '\u00A0'; // initial visible block
   const post = document.createElement('span');
   post.className = 'typed-post';
   wrap.appendChild(pre);
@@ -1896,9 +1954,10 @@ function showPrompt(){
   activeContent.appendChild(line);
 
   currentInput = inp;
-  currentInput._typed = wrap;
-  currentInput._pre = pre;
-  currentInput._post = post;
+  currentInput._typed  = wrap;
+  currentInput._pre    = pre;
+  currentInput._cursor = cursor;
+  currentInput._post   = post;
 
   // Re-render pre/post on every input + key + click event
   const refresh = () => updateTypedSplit();
@@ -1925,16 +1984,29 @@ function freezePrompt(val, masked){
   line.innerHTML = promptHTML + '<span class="term-typed" style="color:var(--green)">'+display+'</span>';
   currentInput = null;
 }
-/* Read input.value + selectionStart, render pre + cursor + post */
+/* Read input.value + selectionStart, render pre + cursor(char_at_pos) + post */
 function updateTypedSplit(){
-  if (!currentInput || !currentInput._pre || !currentInput._post) return;
+  if (!currentInput || !currentInput._pre || !currentInput._post || !currentInput._cursor) return;
   const inp = currentInput;
   const isPwd = !!(S.awaitingInput && S.awaitingInput.type === 'password');
-  if (isPwd){ inp._pre.textContent = ''; inp._post.textContent = ''; return; }
+  if (isPwd){
+    inp._pre.textContent = '';
+    inp._post.textContent = '';
+    inp._cursor.textContent = '\u00A0'; // visible block when no chars
+    return;
+  }
   const v = inp.value;
   const pos = Math.max(0, Math.min(v.length, inp.selectionStart != null ? inp.selectionStart : v.length));
-  inp._pre.textContent  = v.slice(0, pos);
-  inp._post.textContent = v.slice(pos);
+  inp._pre.textContent = v.slice(0, pos);
+  if (pos < v.length){
+    // Cursor sits ON the next character, in inverted/blinking style
+    inp._cursor.textContent = v[pos];
+    inp._post.textContent  = v.slice(pos + 1);
+  } else {
+    // At end of line: nbsp keeps the block visible
+    inp._cursor.textContent = '\u00A0';
+    inp._post.textContent  = '';
+  }
 }
 /* Programmatic value change (history nav, Tab completion). */
 function syncTyped(val){
@@ -2804,7 +2876,8 @@ CMDS.exit = CMDS.logout = () => {
 };
 
 /* =============================================================
-   GRANT ROOT — red prompt, lock terminal, celebration
+   GRANT ROOT — red prompt, optional first-time celebration,
+   terminal stays interactive (any key dismisses overlay).
    ============================================================= */
 function grantRoot(method){
   S.isRoot = true;
@@ -2820,32 +2893,46 @@ function grantRoot(method){
   appendHTML('<span style="color:#ffd86b;text-shadow:0 0 6px #ffd86b">[+] uid=0(root) gid=0(root) — escalation via '+escapeHTML(method)+'</span>');
   appendLine('');
 
-  // Lock terminal: no more input from now on.
-  S.isLocked = true;
-  document.body.classList.add('terminal-locked');
-  if (currentInput){
-    currentInput.classList.add('locked');
-    currentInput.blur();
-    currentInput.disabled = true;
+  // First-time celebration check (cookie-gated)
+  const state = readState();
+  const firstTime = !state.rooted;
+  if (firstTime){
+    state.rooted = true;
+    state.firstAt = Date.now();
+    state.firstMethod = method;
+    writeState(state);
+    setTimeout(showCelebration, 400);
+  } else {
+    appendLine('(welcome back, root.)', 'dim');
   }
 
-  // Show a frozen root prompt at the bottom for visual effect
-  setTimeout(() => {
-    const line = document.createElement('div');
-    line.className = 'term-input-line';
-    line.innerHTML = '<span class="term-prompt">'+getPromptHTML()+'</span><span class="term-cursor"></span>';
-    activeContent.appendChild(line);
-    activeContent.scrollTop = activeContent.scrollHeight;
-  }, 200);
-
-  // Celebration overlay
-  setTimeout(() => showCelebration(), 600);
+  // Terminal stays usable: refresh prompt as root
+  showPrompt();
 }
 
 function showCelebration(){
   rootOverlay.classList.add('active');
   rootOverlay.setAttribute('aria-hidden', 'false');
   launchFireworks();
+
+  // Dismiss-on-any-key (or click). Capture phase so we run before any
+  // other handler, but we DO NOT preventDefault, so the keystroke can
+  // also reach the terminal input — feels natural.
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    hideRootOverlay();
+    document.removeEventListener('keydown', dismiss, true);
+    document.removeEventListener('mousedown', dismiss, true);
+    if (rootOverlay) rootOverlay.removeEventListener('click', dismiss, true);
+  };
+  // Tiny delay so the keypress that triggered grantRoot doesn't immediately dismiss
+  setTimeout(() => {
+    document.addEventListener('keydown', dismiss, true);
+    document.addEventListener('mousedown', dismiss, true);
+    rootOverlay.addEventListener('click', dismiss, true);
+  }, 300);
 }
 function hideRootOverlay(){
   rootOverlay.classList.remove('active');
@@ -3326,8 +3413,7 @@ document.addEventListener('keydown', (e) => {
 // Click on matrix canvas exits
 mxCanvas.addEventListener('click', stopMatrix);
 
-// Click anywhere on rootOverlay does nothing (it's pure visual)
-rootOverlay.addEventListener('click', (e) => { e.preventDefault(); });
+// (rootOverlay click handler is added dynamically in showCelebration)
 </script>
 </body>
 </html>
