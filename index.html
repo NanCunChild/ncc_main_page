@@ -4,10 +4,57 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>~/dev — kernel panic personal site</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=VT323&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/dist/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dist/VT323-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* ============================================================
+   LOCAL FONTS — subsetted, no external dependency
+   - JetBrains Mono: 400, 500, 700, italic 400  (~107 KB total)
+   - VT323: regular  (~6.5 KB)
+   - Major Mono Display: regular  (~7 KB)
+   ============================================================ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dist/JetBrainsMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/dist/JetBrainsMono-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/dist/JetBrainsMono-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dist/JetBrainsMono-Italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dist/VT323-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Major Mono Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dist/MajorMonoDisplay.woff2') format('woff2');
+}
 /* ============================================================
    DESIGN TOKENS
    ============================================================ */
@@ -83,11 +130,22 @@ a:hover { text-decoration: underline; text-underline-offset: 4px; }
 button { font-family: inherit; cursor: pointer; }
 ::selection { background: var(--green); color: var(--bg-0); }
 
-/* scrollbar */
+/* scrollbar — phosphor green theme */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-1); }
-::-webkit-scrollbar-thumb { background: var(--line-bright); border: 2px solid var(--bg-1); }
-::-webkit-scrollbar-thumb:hover { background: var(--green-dim); }
+::-webkit-scrollbar-thumb {
+  background: var(--green-dim);
+  border: 2px solid var(--bg-1);
+  border-radius: 0;
+  box-shadow: inset 0 0 4px rgba(74,240,122,0.3);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow), inset 0 0 4px rgba(255,255,255,0.2);
+}
+::-webkit-scrollbar-corner { background: var(--bg-1); }
+/* Firefox */
+html { scrollbar-width: thin; scrollbar-color: var(--green-dim) var(--bg-1); }
 
 /* ============================================================
    TOP STATUS BAR
@@ -562,7 +620,15 @@ section {
 }
 .crt-content::-webkit-scrollbar { width: 6px; }
 .crt-content::-webkit-scrollbar-track { background: transparent; }
-.crt-content::-webkit-scrollbar-thumb { background: var(--green-dim); }
+.crt-content::-webkit-scrollbar-thumb {
+  background: var(--green-dim);
+  box-shadow: inset 0 0 3px rgba(74,240,122,0.4);
+}
+.crt-content::-webkit-scrollbar-thumb:hover {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green-glow);
+}
+.crt-content { scrollbar-width: thin; scrollbar-color: var(--green-dim) transparent; }
 
 /* scanlines overlay */
 .crt-screen::before {
@@ -750,33 +816,65 @@ section {
 .term-line.red { color: var(--red); text-shadow: 0 0 4px var(--red-glow); }
 .term-line.cyan { color: var(--cyan); text-shadow: 0 0 4px var(--cyan); }
 .term-line.magenta { color: var(--magenta); text-shadow: 0 0 4px var(--magenta); }
-.term-input-line { display: flex; align-items: baseline; }
+.term-input-line {
+  display: flex;
+  align-items: baseline;
+  position: relative; /* contains the absolute-positioned hidden input */
+}
 .term-prompt { color: var(--green); margin-right: 8px; white-space: nowrap; }
 .term-prompt .user { color: var(--magenta); }
 .term-prompt .at   { color: var(--fg-2); }
 .term-prompt .host { color: var(--cyan); }
 .term-prompt .path { color: var(--amber); }
 .term-prompt .sym  { color: var(--green); }
-.term-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
+/* Mirror wrap — what the user "sees" they're typing.
+   Children: <typed-pre> + <term-cursor> + <typed-post>.
+   The cursor sits between pre and post, so it visually follows
+   selectionStart of the hidden <input>. */
+.term-typed {
   color: var(--green);
   font-family: var(--f-crt);
   font-size: 18px;
   text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
-  caret-color: transparent;
+  white-space: pre;
+  word-break: break-all;
+  display: inline;
+}
+.typed-pre, .typed-post {
+  color: inherit;
+  font: inherit;
+  text-shadow: inherit;
+  white-space: pre;
+}
+/* Hidden <input> — captures keystrokes, anchored at top-left of the line
+   (which is at the bottom of the visible CRT region). This ensures
+   browser auto-scroll-into-view does NOT yank the terminal back to top. */
+.term-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
   padding: 0;
+  margin: 0;
+  color: transparent;
+  caret-color: transparent;
+  font: inherit;
+  z-index: -1;
 }
 .term-cursor {
   display: inline-block;
-  width: 0.55ch; height: 1em;
+  width: 0.55ch;
+  height: 1em;
   background: var(--green);
   box-shadow: 0 0 8px var(--green-glow);
   animation: blink 1s step-end infinite;
   vertical-align: text-bottom;
-  margin-left: 1px;
+  /* No left margin — sits between pre and post directly */
 }
 
 /* ============================================================
@@ -910,6 +1008,7 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
   .crt-bezel { padding: 18px; }
   .crt-content { padding: 16px; font-size: 14px; }
   .term-input { font-size: 14px; }
+  .term-typed { font-size: 14px; }
   .crt-controls { right: 20px; bottom: 12px; gap: 12px; }
   .power-btn { width: 32px; height: 32px; }
   .crt-brand { left: 20px; bottom: 16px; font-size: 10px; }
@@ -1398,9 +1497,9 @@ body.terminal-locked .term-cursor { animation: none; opacity: 0.3; }
   <div class="root-banner">
 <pre class="root-ascii">         .         .             .              .         .
     .       *                .            *
-d8888b.  .d88b.   .d88b.  d888888b
-88  `8D .8P  Y8. .8P  Y8. `~~88~~'
-88oobY' 88    88 88    88    88  
+  d8888b.  .d88b.   .d88b.  d888888b
+  88  `8D .8P  Y8. .8P  Y8. `~~88~~'
+  88oobY' 88    88 88    88    88  
 88`8b   88    88 88    88    88
 88 `88. `8b  d8' `8b  d8'    88
 88   YD  `Y88P'   `Y88P'     YP
@@ -1463,7 +1562,7 @@ const FS = {
      - maintainer: EMPTY second field => no password required (real misconfig).
   */
   '/etc/passwd': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
-'root:Yh2gHN.dxEFIs:0:0:root:/root:/bin/bash\n'+
+'root:NCIxDObF2IGew:0:0:root:/root:/bin/bash\n'+
 'daemon:*:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n'+
 'bin:*:2:2:bin:/bin:/usr/sbin/nologin\n'+
 'sys:*:3:3:sys:/dev:/usr/sbin/nologin\n'+
@@ -1512,14 +1611,14 @@ const FS = {
   '/home/guest/.bashrc': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
 '# ~/.bashrc\nexport PS1="\\u@\\h:\\w\\$ "\nalias ll="ls -la"\nalias ..="cd .."\n' },
   '/home/guest/.bash_history': { type:'f', perm:'-rw-------', owner:'guest', group:'guest', content:
-'ls -la /etc\ncat /etc/motd\ncat /etc/passwd\n# tried john on the passwd, it ran for ages but eventually finished\njohn --show /etc/passwd\nsu -\n# forgot the new root password again, let me ping admin\n' },
+'ls -la /etc\ncat /etc/motd\ncat /etc/passwd\n# tried john locally, OOM. exfil\'d the hash to my laptop instead.\nscp /etc/passwd nancunchild@laptop:/tmp/  # cracked it there\nsu -\n' },
   '/home/guest/.ssh': { type:'d', perm:'drwx------', owner:'guest', group:'guest', children:['id_rsa.pub','known_hosts'] },
   '/home/guest/.ssh/id_rsa.pub': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDx... guest@phosphor\n' },
   '/home/guest/.ssh/known_hosts': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'localhost ssh-rsa AAAAB3...\nphosphor ssh-rsa AAAAB3...\n' },
   '/home/guest/about.md': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
 '# NanCunChild\nMicroelectronics @ Xidian University\nFocus: AI · Security · Systems · FPGA\n\nLanguages: C#, Python, Rust, C++, Go, Flutter, JS, Java/Kotlin, COBOL(lol)\n' },
   '/home/guest/notes.txt': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
-'== Dev Notes ==\n- /etc/shadow not used here — legacy install.\n- root pw was reset to a 4-digit number after the lockout incident. (yes, really.)\n- maintainer is the on-call account; see sudoers if you need a hand.\n- If desperate: john /etc/passwd  — the box is slow but it gets there.\n' },
+'== Dev Notes ==\n- /etc/shadow not used here — legacy install (DES in /etc/passwd).\n- root pw was reset to a 4-digit number after the lockout incident. (yes, really.)\n- maintainer is the on-call account; see sudoers if you need a hand.\n- If you forgot it: copy the hash out of /etc/passwd and crack it offline.\n  (this 16M box can\'t run john locally — heap is too small.)\n' },
   '/home/guest/projects': { type:'d', perm:'drwxr-xr-x', owner:'guest', group:'guest', children:['readme'] },
   '/home/guest/projects/readme': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'See main page for project list. type `projects` in this terminal for a summary.\n' },
 
@@ -1760,43 +1859,99 @@ function getPromptHTML(){
 
 function showPrompt(){
   if (S.isLocked) return; // post-root lock — no more input
+  const isPwd = !!(S.awaitingInput && S.awaitingInput.type === 'password');
+
   const line = document.createElement('div');
   line.className = 'term-input-line';
-  // password prompts may not show a normal prompt — show whatever was last appended.
-  // We still need an input for password awaiting state.
-  if (S.awaitingInput && S.awaitingInput.type === 'password'){
-    // No prefix prompt, just the input
-    line.innerHTML = '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>';
-  } else {
-    line.innerHTML = '<span class="term-prompt">'+getPromptHTML()+'</span>';
-  }
+
+  // Prompt: hidden visually for password input, visible otherwise.
+  const promptHTML = isPwd
+    ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
+    : '<span class="term-prompt">'+getPromptHTML()+'</span>';
+
+  // Wrap with split parts so cursor can sit at selectionStart
+  const wrap = document.createElement('span');
+  wrap.className = 'term-typed';
+  const pre = document.createElement('span');
+  pre.className = 'typed-pre';
+  const cursor = document.createElement('span');
+  cursor.className = 'term-cursor';
+  const post = document.createElement('span');
+  post.className = 'typed-post';
+  wrap.appendChild(pre);
+  wrap.appendChild(cursor);
+  wrap.appendChild(post);
+
+  // Hidden input that actually receives keystrokes
   const inp = document.createElement('input');
-  inp.className = 'term-input' + (S.awaitingInput && S.awaitingInput.type === 'password' ? ' password' : '');
-  inp.setAttribute('spellcheck','false');
-  inp.setAttribute('autocomplete','off');
-  inp.setAttribute('autocapitalize','off');
-  const cur = document.createElement('span');
-  cur.className = 'term-cursor';
+  inp.className = 'term-input' + (isPwd ? ' password' : '');
+  inp.setAttribute('spellcheck', 'false');
+  inp.setAttribute('autocomplete', 'off');
+  inp.setAttribute('autocapitalize', 'off');
+  if (isPwd) inp.setAttribute('aria-label', 'password');
+
+  line.insertAdjacentHTML('beforeend', promptHTML);
+  line.appendChild(wrap);
   line.appendChild(inp);
-  line.appendChild(cur);
   activeContent.appendChild(line);
-  inp.focus();
+
   currentInput = inp;
+  currentInput._typed = wrap;
+  currentInput._pre = pre;
+  currentInput._post = post;
+
+  // Re-render pre/post on every input + key + click event
+  const refresh = () => updateTypedSplit();
+  inp.addEventListener('input', refresh);
+  inp.addEventListener('keyup', refresh);
+  inp.addEventListener('click', refresh);
+  inp.addEventListener('select', refresh);
+  inp.addEventListener('focus', refresh);
+
   inp.addEventListener('keydown', onKey);
+
+  // preventScroll: don't yank crt-content to top when focusing
+  try { inp.focus({ preventScroll: true }); }
+  catch (_) { inp.focus(); }
   activeContent.scrollTop = activeContent.scrollHeight;
 }
 function freezePrompt(val, masked){
   if (!currentInput) return;
   const line = currentInput.parentElement;
-  const display = masked ? '' : escapeHTML(val); // classic UNIX: nothing shown for password
+  const display = masked ? '' : escapeHTML(val);
   const promptHTML = masked
     ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
     : '<span class="term-prompt">'+getPromptHTML()+'</span>';
-  line.innerHTML = promptHTML + '<span style="color:var(--green)">'+display+'</span>';
+  line.innerHTML = promptHTML + '<span class="term-typed" style="color:var(--green)">'+display+'</span>';
   currentInput = null;
 }
+/* Read input.value + selectionStart, render pre + cursor + post */
+function updateTypedSplit(){
+  if (!currentInput || !currentInput._pre || !currentInput._post) return;
+  const inp = currentInput;
+  const isPwd = !!(S.awaitingInput && S.awaitingInput.type === 'password');
+  if (isPwd){ inp._pre.textContent = ''; inp._post.textContent = ''; return; }
+  const v = inp.value;
+  const pos = Math.max(0, Math.min(v.length, inp.selectionStart != null ? inp.selectionStart : v.length));
+  inp._pre.textContent  = v.slice(0, pos);
+  inp._post.textContent = v.slice(pos);
+}
+/* Programmatic value change (history nav, Tab completion). */
+function syncTyped(val){
+  if (!currentInput) return;
+  currentInput.value = val == null ? '' : val;
+  // Move caret to end
+  const end = currentInput.value.length;
+  try { currentInput.setSelectionRange(end, end); } catch(_) {}
+  updateTypedSplit();
+}
 
-contentEl.addEventListener('click', () => { if (currentInput) currentInput.focus(); });
+contentEl.addEventListener('click', () => {
+  if (currentInput){
+    try { currentInput.focus({ preventScroll: true }); }
+    catch(_) { currentInput.focus(); }
+  }
+});
 
 /* ── KEYBOARD ── */
 function onKey(e){
@@ -1817,13 +1972,13 @@ function onKey(e){
     e.preventDefault();
     if (!S.history.length) return;
     S.histIdx = Math.max(0, S.histIdx - 1);
-    currentInput.value = S.history[S.histIdx] || '';
+    syncTyped(S.history[S.histIdx] || '');
     return;
   }
   if (e.key === 'ArrowDown'){
     e.preventDefault();
     S.histIdx = Math.min(S.history.length, S.histIdx + 1);
-    currentInput.value = S.history[S.histIdx] || '';
+    syncTyped(S.history[S.histIdx] || '');
     return;
   }
   if (e.key === 'Tab'){
@@ -1865,9 +2020,17 @@ function tabComplete(){
     const matches = Object.keys(CMDS).filter(c => c.startsWith(val));
     if (matches.length === 1){
       currentInput.value = matches[0] + ' ';
+      const e = currentInput.value.length;
+      try { currentInput.setSelectionRange(e, e); } catch(_) {}
+      updateTypedSplit();
     } else if (matches.length > 1){
       const prefix = commonPrefix(matches);
-      if (prefix.length > val.length) currentInput.value = prefix;
+      if (prefix.length > val.length){
+        currentInput.value = prefix;
+        const e = currentInput.value.length;
+        try { currentInput.setSelectionRange(e, e); } catch(_) {}
+        updateTypedSplit();
+      }
       else { appendLine(matches.join('  '), 'dim'); echoCurrentLine(); }
     }
   } else {
@@ -1892,12 +2055,18 @@ function tabComplete(){
       const replaced = partial.slice(0, partial.length - base.length) + matches[0] + tail;
       parts[parts.length - 1] = replaced;
       currentInput.value = parts.join(' ');
+      const e = currentInput.value.length;
+      try { currentInput.setSelectionRange(e, e); } catch(_) {}
+      updateTypedSplit();
     } else if (matches.length > 1){
       const prefix = commonPrefix(matches);
       if (prefix.length > base.length){
         const replaced = partial.slice(0, partial.length - base.length) + prefix;
         parts[parts.length - 1] = replaced;
         currentInput.value = parts.join(' ');
+        const e = currentInput.value.length;
+        try { currentInput.setSelectionRange(e, e); } catch(_) {}
+        updateTypedSplit();
       } else {
         appendLine(matches.join('  '), 'dim');
         echoCurrentLine();
@@ -1919,7 +2088,12 @@ function echoCurrentLine(){
   const val = currentInput.value;
   freezePrompt(val, false);
   showPrompt();
-  if (currentInput) currentInput.value = val;
+  if (currentInput){
+    currentInput.value = val;
+    const e = val.length;
+    try { currentInput.setSelectionRange(e, e); } catch(_) {}
+    updateTypedSplit();
+  }
 }
 
 /* ── PATH RESOLUTION + PERMISSIONS ── */
@@ -2472,7 +2646,7 @@ CMDS.sl = async () => {
    ============================================================= */
 
 /* ── PASSWORDS ── */
-const ROOT_PASSWORD = '1234';        // 4-digit, what john "cracks"
+const ROOT_PASSWORD = '1433';        // 4-digit DES — crack /etc/passwd offline (john / hashcat)
 const GUEST_PASSWORD = 'guest';      // for completeness
 const KNOWN_PASSWORDS = { root: ROOT_PASSWORD, guest: GUEST_PASSWORD, maintainer: '' /* empty */ };
 
@@ -2599,60 +2773,23 @@ CMDS.sudo = (arg, args, raw) => {
   showPrompt();
 };
 
-/* ── JOHN THE RIPPER (fake) ── */
-CMDS.john = async (arg, args) => {
+/* ── JOHN THE RIPPER (stub) ──
+   Intentionally NOT cracking on-box. The puzzle is real:
+   /etc/passwd uses DES (no shadow). Copy the line off, run john / hashcat
+   yourself, then come back and `su -`.
+*/
+CMDS.john = (arg, args) => {
+  appendLine('John the Ripper 1.8.0 (Phosphor Linux build)', 'bright');
   if (!args.length){
-    appendLine('John the Ripper 1.8.0 (Phosphor Linux build)', 'bright');
     appendLine('Usage: john [OPTIONS] [PASSWORD-FILES]');
-    appendLine('  --show         show cracked passwords');
-    appendLine('  --wordlist=F   use a wordlist (not used here — incremental mode)');
     return showPrompt();
   }
-
-  const showMode = args.includes('--show');
   const file = args.find(a => !a.startsWith('-'));
-  if (!file){ appendLine('john: no password files specified', 'red'); return showPrompt(); }
-
-  const path = resolvePath(file);
-  const node = getNode(path);
-  if (!node){ appendLine("john: open: '"+file+"': No such file or directory", 'red'); return showPrompt(); }
-  if (!canRead(node)){ appendLine("john: open: '"+file+"': Permission denied", 'red'); return showPrompt(); }
-
-  if (showMode){
-    appendLine('root:'+ROOT_PASSWORD+':0:0:root:/root:/bin/bash');
-    appendLine('');
-    appendLine('1 password hash cracked, 1 left');
-    return showPrompt();
-  }
-
-  appendLine('Loaded 2 password hashes with 2 different salts (descrypt, traditional crypt(3) [DES 32/64])', 'bright');
-  appendLine('Will run 1 OpenMP thread');
-  appendLine('Press \'q\' or Ctrl-C to abort, almost any other key for status');
   appendLine('');
-
-  // Animated brute force
-  const tries = [
-    { v:'0000', wait:200 },
-    { v:'0100', wait:180 },
-    { v:'0500', wait:180 },
-    { v:'0999', wait:180 },
-    { v:'1000', wait:180 },
-    { v:'1111', wait:180 },
-    { v:'1233', wait:200 },
-  ];
-  for (const t of tries){
-    if (S.isLocked) return;
-    const div = appendLine('Trying: '+t.v, 'dim');
-    await sleep(t.wait);
-  }
-  await sleep(220);
-  appendHTML('<span style="color:var(--green)">'+ROOT_PASSWORD+'             (root)</span>');
-  await sleep(150);
-  appendLine('1g 0:00:00:03 100% 1/2 (ETA: now)  0.3267g/s 1633p/s 1633c/s 1633C/s 1234..1234');
-  appendLine('Use the "--show" option to display all of the cracked passwords reliably');
-  appendLine('Session completed', 'bright');
-  appendLine('');
-  appendLine('# now try: su -   (password: '+ROOT_PASSWORD+')', 'amber');
+  appendLine('john: process forked: cannot allocate memory', 'red');
+  appendLine('john: heap exhausted on this 16M box.', 'red');
+  appendLine('hint: this hash is descrypt — small keyspace, easy offline.', 'dim');
+  appendLine('      copy the line out of '+(file||'/etc/passwd')+' and crack it on a real machine.', 'dim');
   showPrompt();
 };
 
@@ -2970,7 +3107,12 @@ function exitCLIMode(){
 }
 const cliOverlayEl = document.querySelector('.cli-overlay');
 if (cliOverlayEl){
-  cliOverlayEl.addEventListener('click', () => { if (currentInput) currentInput.focus(); });
+  cliOverlayEl.addEventListener('click', () => {
+    if (currentInput){
+      try { currentInput.focus({ preventScroll: true }); }
+      catch(_) { currentInput.focus(); }
+    }
+  });
 }
 
 /* =============================================================
