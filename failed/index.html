@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="NanCunChild — Microelectronics @ Xidian University. AI · Security · Systems.">
+<title>NanCunChild · ~/dev — kernel panic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=VT323&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --bg-0: #07080a;
+  --bg-1: #0b0d10;
+  --bg-2: #11141a;
+  --bg-3: #1a1f28;
+  --line: #1f2630;
+  --line-bright: #2a3340;
+  --fg-0: #d9e0e8;
+  --fg-1: #8a95a5;
+  --fg-2: #5a6675;
+  --fg-3: #3a4452;
+  /* phosphor accents */
+  --green: #4af07a;
+  --green-dim: #2a8c46;
+  --green-glow: #4af07a55;
+  --amber: #ffb454;
+  --red: #ff4d5a;
+  --red-glow: #ff4d5a66;
+  --cyan: #6cd1ff;
+  --magenta: #ff6cb8;
+  --yellow: #f5dc6a;
+  --gold: #ffd86b;
+  /* fonts */
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --f-crt: 'VT323', 'JetBrains Mono', monospace;
+  --f-display: 'Major Mono Display', monospace;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg-0);
+  color: var(--fg-0);
+  font-family: var(--f-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: crosshair;
+  /* ambient grain + grid */
+  background-image:
+    radial-gradient(ellipse at top, #0e1218 0%, var(--bg-0) 60%),
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  background-position: 0 0, 0 0, 0 0;
+}
+body::before {
+  /* film grain */
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  z-index: 999;
+}
+body::after {
+  /* vignette */
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 40%, #000 130%);
+  z-index: 998;
+}
+
+a { color: var(--green); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 4px; }
+button { font-family: inherit; cursor: pointer; }
+::selection { background: var(--green); color: var(--bg-0); }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--line-bright); border: 2px solid var(--bg-1); }
+::-webkit-scrollbar-thumb:hover { background: var(--green-dim); }
+
+/* ============================================================
+   TOP STATUS BAR
+   ============================================================ */
+.statusbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 28px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  font-size: 11px;
+  color: var(--fg-1);
+  z-index: 100;
+  gap: 16px;
+  letter-spacing: 0.5px;
+}
+.statusbar .dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green-glow);
+  animation: pulse 2s ease-in-out infinite;
+  margin-right: 8px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.statusbar .sb-item { display: flex; align-items: center; }
+.statusbar .sb-spacer { flex: 1; }
+.statusbar .sb-key { color: var(--fg-2); }
+.statusbar .sb-val { color: var(--green); margin-left: 6px; }
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+main {
+  padding-top: 28px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-left: 32px; padding-right: 32px;
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero {
+  min-height: calc(100vh - 28px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  padding: 60px 0;
+  position: relative;
+}
+.hero-left { position: relative; }
+.hero-tag {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--green);
+  border: 1px solid var(--green-dim);
+  padding: 4px 10px;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+  background: rgba(74, 240, 122, 0.04);
+}
+.hero-tag::before { content: '>> '; opacity: 0.6; }
+
+.hero h1 {
+  font-family: var(--f-display);
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 400;
+  line-height: 0.95;
+  color: var(--fg-0);
+  margin-bottom: 8px;
+  text-transform: lowercase;
+  letter-spacing: -0.02em;
+}
+.hero h1 .accent { color: var(--green); }
+.hero h1 .cursor-blink {
+  display: inline-block;
+  background: var(--green);
+  width: 0.6ch;
+  height: 0.8em;
+  margin-left: 4px;
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.hero-sub {
+  font-size: 1rem;
+  color: var(--fg-1);
+  margin: 24px 0 32px;
+  max-width: 480px;
+  line-height: 1.7;
+}
+.hero-sub .hl { color: var(--amber); }
+.hero-sub .hl2 { color: var(--cyan); }
+
+.hero-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 20px;
+  font-size: 12px;
+  color: var(--fg-2);
+  margin-bottom: 32px;
+  max-width: 480px;
+}
+.hero-meta .k { color: var(--fg-2); }
+.hero-meta .k::before { content: '$ '; color: var(--green-dim); }
+.hero-meta .v { color: var(--fg-0); }
+.hero-meta .v .badge {
+  display: inline-block;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 1px 8px;
+  font-size: 10px;
+  margin-right: 6px;
+  color: var(--green);
+}
+
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line-bright);
+  background: var(--bg-1);
+  color: var(--fg-0);
+  padding: 10px 18px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  position: relative;
+}
+.btn::before { content: '[ '; color: var(--fg-2); }
+.btn::after  { content: ' ]'; color: var(--fg-2); }
+.btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(74, 240, 122, 0.06);
+  box-shadow: 0 0 20px var(--green-glow);
+}
+.btn:hover::before, .btn:hover::after { color: var(--green); }
+.btn.primary { border-color: var(--green-dim); color: var(--green); }
+
+/* hero right: ascii portrait + system info */
+.hero-right {
+  font-family: var(--f-crt);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green-glow);
+  white-space: pre;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-right::before {
+  /* CRT scanlines on ascii panel */
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0px,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.25) 3px,
+    rgba(0,0,0,0.25) 3px
+  );
+  pointer-events: none;
+}
+.hero-right .ascii-art {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.hero-right .sys-info {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--fg-1);
+  text-shadow: none;
+  line-height: 1.7;
+  border-top: 1px dashed var(--line);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.hero-right .sys-info .key { color: var(--green); }
+
+/* corner brackets decoration */
+.bracket {
+  position: absolute;
+  width: 20px; height: 20px;
+  border: 2px solid var(--green-dim);
+}
+.bracket.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.bracket.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.bracket.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.bracket.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+/* ============================================================
+   SECTION HEADERS
+   ============================================================ */
+section {
+  padding: 80px 0;
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+.section-label {
+  font-size: 11px;
+  color: var(--fg-2);
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+.section-label::before { content: '// '; color: var(--green-dim); }
+.section-title {
+  font-family: var(--f-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 400;
+  color: var(--fg-0);
+  text-transform: lowercase;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.section-title .num {
+  font-size: 0.5em;
+  color: var(--green);
+  font-family: var(--f-mono);
+}
+.section-title .line-after {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--line-bright), transparent);
+}
+
+/* ============================================================
+   ABOUT
+   ============================================================ */
+.about-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 48px;
+}
+.about-text {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--fg-1);
+}
+.about-text p { margin-bottom: 18px; }
+.about-text .hl { color: var(--fg-0); border-bottom: 1px dashed var(--green-dim); }
+.about-text strong { color: var(--green); font-weight: 500; }
+
+.about-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.stat-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  padding: 16px;
+  position: relative;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 3px; height: 100%;
+  background: var(--green);
+}
+.stat-card .num {
+  font-family: var(--f-display);
+  font-size: 2.2rem;
+  color: var(--green);
+  line-height: 1;
+}
+.stat-card .label {
+  font-size: 11px;
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   PROJECTS
+   ============================================================ */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.project {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  padding: 24px;
+  transition: all 0.25s;
+  position: relative;
+  cursor: pointer;
+}
+.project:hover {
+  border-color: var(--green-dim);
+  background: var(--bg-2);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--line-bright);
+}
+.project-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.project-name {
+  font-family: var(--f-mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--fg-0);
+}
+.project-name::before { content: '> '; color: var(--green); }
+.project-status {
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  letter-spacing: 1px;
+}
+.project-status.live { color: var(--green); }
+.project-status.research { color: var(--cyan); }
+.project-status.hw { color: var(--magenta); }
+.project-status.dev { color: var(--amber); }
+.project-status.archived { color: var(--fg-2); }
+.project-desc {
+  font-size: 13px;
+  color: var(--fg-1);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.project-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.project-tags span {
+  font-size: 10px;
+  color: var(--fg-2);
+  background: var(--bg-3);
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+}
+
+/* ============================================================
+   SKILLS
+   ============================================================ */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+.skill-col h3 {
+  font-size: 12px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.skill-col h3::before { content: '┌─ '; }
+.skill-item {
+  display: grid;
+  grid-template-columns: 110px 1fr 40px;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 10px;
+  color: var(--fg-1);
+}
+.skill-item .name { color: var(--fg-0); }
+.skill-bar {
+  height: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+.skill-bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: var(--lvl, 50%);
+  background: linear-gradient(90deg, var(--green-dim), var(--green));
+  box-shadow: 0 0 8px var(--green-glow);
+}
+.skill-item .val { color: var(--green); font-size: 11px; text-align: right; }
+
+/* ============================================================
+   CRT TERMINAL SECTION
+   ============================================================ */
+.crt-section {
+  padding-bottom: 100px;
+}
+.crt-intro {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 50px;
+  color: var(--fg-1);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.crt-intro .blink-text { color: var(--amber); animation: blink 1.5s step-end infinite; }
+
+/* the CRT box - big crt monitor */
+.crt-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  perspective: 1200px;
+}
+.crt-monitor {
+  position: relative;
+  width: min(900px, 95vw);
+  /* monitor body */
+  background: linear-gradient(180deg, #1a1814 0%, #0e0c0a 100%);
+  border-radius: 24px 24px 36px 36px;
+  padding: 36px 42px 70px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 -4px 12px rgba(0,0,0,0.6),
+    0 30px 80px rgba(0,0,0,0.7),
+    0 8px 20px rgba(0,0,0,0.4);
+  /* fake plastic texture */
+  background-image:
+    linear-gradient(180deg, #1a1814 0%, #0e0c0a 100%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.01) 0 2px, transparent 2px 4px);
+}
+/* the screen bezel */
+.crt-bezel {
+  position: relative;
+  background: #050505;
+  border-radius: 30px / 18%;
+  padding: 28px;
+  box-shadow:
+    inset 0 0 30px #000,
+    inset 0 2px 4px rgba(0,0,0,0.8);
+}
+/* the actual screen */
+.crt-screen {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #050706;
+  border-radius: 28px / 16%;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 80px rgba(0,0,0,0.9),
+    inset 0 0 6px rgba(74,240,122,0.05);
+  transform: translateZ(0);
+}
+/* screen content layer (where terminal lives) */
+.crt-content {
+  position: absolute;
+  inset: 0;
+  padding: 28px;
+  color: var(--green);
+  font-family: var(--f-crt);
+  font-size: 18px;
+  line-height: 1.25;
+  text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  /* slight color shift to simulate phosphor */
+  filter: contrast(1.05) brightness(1.05);
+}
+.crt-content::-webkit-scrollbar { width: 6px; }
+.crt-content::-webkit-scrollbar-track { background: transparent; }
+.crt-content::-webkit-scrollbar-thumb { background: var(--green-dim); }
+
+/* scanlines overlay */
+.crt-screen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0) 0px,
+    rgba(255,255,255,0) 2px,
+    rgba(0,0,0,0.35) 3px,
+    rgba(0,0,0,0.35) 3px
+  );
+  z-index: 5;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+/* curved glass + glare overlay */
+.crt-screen::after {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    /* glare top-left */
+    radial-gradient(ellipse 60% 40% at 25% 15%, rgba(255,255,255,0.06), transparent 60%),
+    /* edge darkening (CRT curvature) */
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.6) 100%);
+  z-index: 6;
+  pointer-events: none;
+  border-radius: 28px / 16%;
+}
+
+/* SVG noise overlay */
+.crt-noise {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.15 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  z-index: 7;
+  pointer-events: none;
+  animation: noise 0.2s steps(3) infinite;
+}
+@keyframes noise {
+  0%   { transform: translate(0,0); }
+  33%  { transform: translate(-2px,1px); }
+  66%  { transform: translate(1px,-2px); }
+  100% { transform: translate(0,0); }
+}
+
+/* CRT OFF state - dark with subtle center dot */
+.crt-screen.off .crt-content { opacity: 0; }
+.crt-screen.off::after {
+  background:
+    radial-gradient(ellipse at center, #1a1f1c 0%, #050706 30%, #000 100%);
+}
+/* Power on flash */
+.crt-flash {
+  position: absolute; inset: 0;
+  background: #fff;
+  opacity: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.crt-screen.powering-on .crt-flash {
+  animation: powerOn 1.2s ease-out forwards;
+}
+@keyframes powerOn {
+  0%   { opacity: 0; transform: scaleY(0.001) scaleX(0.2); }
+  20%  { opacity: 1; transform: scaleY(0.005) scaleX(1); }
+  40%  { opacity: 0.8; transform: scaleY(0.4) scaleX(1); }
+  60%  { opacity: 0.5; transform: scaleY(1) scaleX(1); }
+  100% { opacity: 0; transform: scaleY(1) scaleX(1); }
+}
+
+/* monitor base / stand */
+.crt-base {
+  width: min(500px, 60%);
+  height: 70px;
+  background: linear-gradient(180deg, #1a1814 0%, #0a0908 100%);
+  margin-top: -10px;
+  border-radius: 0 0 14px 14px;
+  box-shadow:
+    inset 0 -2px 6px rgba(0,0,0,0.6),
+    0 8px 16px rgba(0,0,0,0.5);
+  position: relative;
+}
+.crt-base::after {
+  /* base plate */
+  content: '';
+  position: absolute;
+  bottom: -8px; left: 10%; right: 10%;
+  height: 12px;
+  background: #0a0908;
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+/* power button + LED */
+.crt-controls {
+  position: absolute;
+  bottom: 18px;
+  right: 36px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.crt-brand {
+  position: absolute;
+  bottom: 22px;
+  left: 36px;
+  font-family: var(--f-display);
+  font-size: 13px;
+  color: #3a342c;
+  letter-spacing: 4px;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.8);
+}
+.crt-led {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red-glow), inset 0 0 2px rgba(255,255,255,0.4);
+  transition: all 0.3s;
+}
+.crt-led.on {
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green-glow), inset 0 0 2px rgba(255,255,255,0.4);
+}
+.power-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #2a2520, #15120f);
+  border: 1px solid #0a0908;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,0.08),
+    inset 0 -2px 4px rgba(0,0,0,0.6),
+    0 2px 4px rgba(0,0,0,0.5);
+  color: #5a554d;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  position: relative;
+}
+.power-btn:hover { color: #8a8478; }
+.power-btn:active {
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.6),
+    inset 0 -1px 1px rgba(255,255,255,0.04);
+  transform: translateY(1px);
+}
+.power-btn::after {
+  content: 'PWR';
+  position: absolute;
+  bottom: -16px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: #3a342c;
+  letter-spacing: 2px;
+  font-family: var(--f-mono);
+}
+
+/* hint when off */
+.crt-hint {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--fg-2);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-align: center;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.7;
+}
+.crt-screen.on .crt-hint { display: none; }
+.crt-hint .arrow { color: var(--red); animation: blink 1s step-end infinite; }
+
+/* ============================================================
+   TERMINAL CONTENT STYLES
+   ============================================================ */
+.term-line { white-space: pre-wrap; word-break: break-word; }
+.term-line.dim { color: var(--green-dim); }
+.term-line.bright { color: #aaffaa; }
+.term-line.amber { color: var(--amber); text-shadow: 0 0 4px var(--amber); }
+.term-line.red { color: var(--red); text-shadow: 0 0 4px var(--red-glow); }
+.term-line.cyan { color: var(--cyan); text-shadow: 0 0 4px var(--cyan); }
+.term-line.magenta { color: var(--magenta); text-shadow: 0 0 4px var(--magenta); }
+.term-input-line { display: flex; align-items: baseline; }
+.term-prompt { color: var(--green); margin-right: 8px; white-space: nowrap; }
+.term-prompt .user { color: var(--magenta); }
+.term-prompt .at   { color: var(--fg-2); }
+.term-prompt .host { color: var(--cyan); }
+.term-prompt .path { color: var(--amber); }
+.term-prompt .sym  { color: var(--green); }
+.term-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--green);
+  font-family: var(--f-crt);
+  font-size: 18px;
+  text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
+  caret-color: transparent;
+  padding: 0;
+}
+.term-cursor {
+  display: inline-block;
+  width: 0.55ch; height: 1em;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer {
+  padding: 40px 0;
+  border-top: 1px dashed var(--line);
+  font-size: 11px;
+  color: var(--fg-2);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+footer .heart { color: var(--red); }
+
+/* ============================================================
+   CLI FULLSCREEN MODE
+   ============================================================ */
+body.cli-mode { overflow: hidden; }
+body.cli-mode main { display: none; }
+body.cli-mode .statusbar { display: none; }
+.cli-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: #000;
+  z-index: 9000;
+  flex-direction: column;
+}
+body.cli-mode .cli-overlay { display: flex; }
+.cli-overlay-screen {
+  flex: 1;
+  position: relative;
+  background: #050706;
+  overflow: hidden;
+}
+.cli-overlay-screen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0) 0px,
+    rgba(255,255,255,0) 2px,
+    rgba(0,0,0,0.3) 3px,
+    rgba(0,0,0,0.3) 3px
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+.cli-overlay-screen::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 110%);
+  pointer-events: none;
+  z-index: 6;
+}
+.cli-content {
+  position: absolute;
+  inset: 0;
+  padding: 32px;
+  font-family: var(--f-crt);
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--green);
+  text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
+  overflow-y: auto;
+}
+
+/* ============================================================
+   MATRIX RAIN CANVAS
+   ============================================================ */
+.matrix-canvas {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 8500;
+  background: #000;
+}
+body.matrix-on .matrix-canvas { display: block; }
+.matrix-exit {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 8600;
+  color: var(--green);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  background: rgba(0,0,0,0.6);
+  padding: 6px 14px;
+  border: 1px solid var(--green-dim);
+  display: none;
+  letter-spacing: 2px;
+}
+body.matrix-on .matrix-exit { display: block; animation: blink 1.5s step-end infinite; }
+
+/* ============================================================
+   THEMES
+   ============================================================ */
+body.theme-amber {
+  --green: #ffb454; --green-dim: #b87a28; --green-glow: #ffb45455;
+}
+body.theme-amber .crt-content,
+body.theme-amber .term-prompt,
+body.theme-amber .term-input,
+body.theme-amber .hero-right { color: #ffb454; text-shadow: 0 0 4px #ffb454, 0 0 10px #ffb45555; }
+
+body.theme-ice {
+  --green: #6cd1ff; --green-dim: #2c7ba8; --green-glow: #6cd1ff55;
+}
+body.theme-ice .crt-content,
+body.theme-ice .term-prompt,
+body.theme-ice .term-input,
+body.theme-ice .hero-right { color: #6cd1ff; text-shadow: 0 0 4px #6cd1ff, 0 0 10px #6cd1ff55; }
+
+body.theme-blood {
+  --green: #ff4d5a; --green-dim: #a82a35; --green-glow: #ff4d5a55;
+}
+body.theme-blood .crt-content,
+body.theme-blood .term-prompt,
+body.theme-blood .term-input,
+body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0 10px #ff4d5a55; }
+
+/* ============================================================
+   ROOT STATE
+   ============================================================ */
+.term-line.gold { color: #ffd86b; text-shadow: 0 0 6px #ffd86b; }
+body.is-root .statusbar { border-bottom-color: var(--red); }
+body.is-root .statusbar .dot { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+body.is-root .statusbar .sb-val { color: var(--red); }
+.root-flag { display: none; color: var(--red); font-weight: 700; letter-spacing: 2px; animation: blink 1s step-end infinite; }
+body.is-root .root-flag { display: inline-block; }
+body.is-root .term-input,
+body.is-root .crt-content { color: #ffd86b; text-shadow: 0 0 4px #ffd86b, 0 0 10px rgba(255,216,107,0.4); }
+body.is-root .term-cursor { background: #ffd86b; box-shadow: 0 0 8px #ffd86b; }
+body.is-root .cli-content { color: #ffd86b; text-shadow: 0 0 4px #ffd86b, 0 0 10px rgba(255,216,107,0.4); }
+.term-prompt .user.root { color: var(--red); text-shadow: 0 0 6px var(--red-glow); }
+.term-prompt .sym.root { color: var(--red); }
+.term-input.password { -webkit-text-security: disc; }
+
+/* ROOT CELEBRATION */
+.root-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9500; pointer-events: none;
+  background: rgba(0,0,0,0.85);
+}
+.root-overlay.active { display: block; animation: rootFlash 4s ease-out forwards; }
+@keyframes rootFlash {
+  0% { background: rgba(255,255,255,1); }
+  10% { background: rgba(255,216,107,0.4); }
+  100% { background: radial-gradient(ellipse at center, rgba(255,216,107,0.1) 0%, rgba(0,0,0,0.85) 70%); }
+}
+.root-banner {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center; font-family: var(--f-display);
+  color: #ffd86b; text-shadow: 0 0 20px #ffd86b, 0 0 40px rgba(255,216,107,0.6);
+}
+.root-banner .big {
+  font-size: clamp(2rem, 8vw, 6rem); letter-spacing: 0.1em; line-height: 1;
+  animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.root-banner .sub {
+  font-family: var(--f-mono); font-size: 14px; color: #ffd86b;
+  margin-top: 16px; letter-spacing: 6px; opacity: 0;
+  animation: fadeIn 1s ease-out 0.5s forwards;
+}
+@keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes fadeIn { to { opacity: 1; } }
+.fireworks-canvas { position: absolute; inset: 0; pointer-events: none; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 880px) {
+  .hero { grid-template-columns: 1fr; gap: 32px; }
+  .about-grid { grid-template-columns: 1fr; }
+  .projects-grid { grid-template-columns: 1fr; }
+  .skills-grid { grid-template-columns: 1fr; }
+  main { padding-left: 16px; padding-right: 16px; }
+  .crt-monitor { padding: 20px 24px 50px; }
+  .crt-bezel { padding: 18px; }
+  .crt-content { padding: 16px; font-size: 14px; }
+  .term-input { font-size: 14px; }
+  .crt-controls { right: 20px; bottom: 12px; gap: 12px; }
+  .power-btn { width: 32px; height: 32px; }
+  .crt-brand { left: 20px; bottom: 16px; font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================ STATUS BAR ============================ -->
+<div class="statusbar">
+  <span class="sb-item"><span class="dot"></span>SYSTEM ONLINE</span>
+  <span class="sb-item"><span class="sb-key" id="sb-userk">user@</span><span class="sb-val" id="sb-host">portfolio</span></span>
+  <span class="sb-item root-flag">[ ! ROOT ACCESS ! ]</span>
+  <span class="sb-item"><span class="sb-key">uptime:</span><span class="sb-val" id="sb-uptime">00:00:00</span></span>
+  <span class="sb-spacer"></span>
+  <span class="sb-item"><span class="sb-key">utc:</span><span class="sb-val" id="sb-utc">--:--:--</span></span>
+  <span class="sb-item"><span class="sb-key">node:</span><span class="sb-val">xidian.edu.cn</span></span>
+  <span class="sb-item"><span class="sb-key">load:</span><span class="sb-val" id="sb-load">0.42</span></span>
+</div>
+
+<main>
+
+  <!-- ============================ HERO ============================ -->
+  <section class="hero" id="hero">
+    <div class="bracket tl"></div>
+    <div class="bracket tr"></div>
+    <div class="bracket bl"></div>
+    <div class="bracket br"></div>
+
+    <div class="hero-left">
+      <div class="hero-tag">SEGMENTATION FAULT — CORE DUMPED</div>
+      <h1>
+        hello<span class="accent">,</span><br/>
+        i am <span class="accent">nancunchild</span><span class="cursor-blink"></span>
+      </h1>
+      <p class="hero-sub">
+        Microelectronics undergraduate at <span class="hl">Xidian University</span>, trespassing across
+        <span class="hl2">AI</span>, <span class="hl2">software</span>, and
+        <span class="hl2">network security</span>. I deploy LLMs, reverse games, audit
+        firmware, and occasionally write a switch on an FPGA.
+      </p>
+
+      <div class="hero-meta">
+        <span class="k">whoami</span>
+        <span class="v">undergrad / tinkerer / part-time sysadmin</span>
+        <span class="k">school</span>
+        <span class="v">Xidian University — Microelectronic Science &amp; Engineering</span>
+        <span class="k">focus</span>
+        <span class="v">AI · Security · FPGA · Reverse Engineering</span>
+        <span class="k">stack</span>
+        <span class="v">
+          <span class="badge">C#</span>
+          <span class="badge">Python</span>
+          <span class="badge">Rust</span>
+          <span class="badge">C++</span>
+          <span class="badge">Go</span>
+          <span class="badge">Flutter</span>
+          <span class="badge">JS/TS</span>
+          <span class="badge">Java/Kotlin</span>
+          <span class="badge">COBOL*</span>
+        </span>
+        <span class="k">status</span>
+        <span class="v">accepting interesting problems</span>
+      </div>
+
+      <div class="hero-actions">
+        <a class="btn primary" href="#crt">boot_terminal.sh</a>
+        <a class="btn" href="#projects">cat ./projects</a>
+        <a class="btn" href="#contact">./contact</a>
+      </div>
+    </div>
+
+    <div class="hero-right">
+<div class="ascii-art">      .-"""""-.
+     /         \
+    |  o     o  |
+    |     ^     |
+    |  \_____/  |
+     \         /
+      '-.....-'
+   [ NCC@PHOSPHOR ]</div>
+<div class="sys-info">
+<span class="key">User</span>......... NanCunChild
+<span class="key">Host</span>......... phosphor.xidian.edu.cn
+<span class="key">OS</span>........... Arch / Debian (dual)
+<span class="key">Kernel</span>....... 6.x.x-zen
+<span class="key">Shell</span>........ zsh + tmux
+<span class="key">Editor</span>....... neovim + vscode
+<span class="key">CPU</span>.......... carbon-based, dual-core
+<span class="key">GPU</span>.......... RTX (for the models)
+<span class="key">Uptime</span>....... ~22 years
+<span class="key">Caffeine</span>..... 3 cups / kernel-panic
+<span class="key">Bugs</span>......... mine: ∞ · others: ∞
+</div>
+    </div>
+  </section>
+
+  <!-- ============================ ABOUT ============================ -->
+  <section id="about">
+    <div class="section-label">SECTION</div>
+    <h2 class="section-title">
+      <span class="num">01.</span> ./about_me<span class="line-after"></span>
+    </h2>
+    <div class="about-grid">
+      <div class="about-text">
+        <p>I'm <strong>NanCunChild</strong> — an undergrad at <span class="hl">Xidian University</span>, formally trained in Microelectronic Science &amp; Engineering but spending most of my actual hours at the intersection of <strong>AI</strong>, <strong>software engineering</strong>, and <strong>network security</strong>.</p>
+        <p>What that looks like in practice: I've worked on <span class="hl">Qualcomm trust-chain research</span>, analyzed vulnerabilities in <span class="hl">Xiaomi devices</span>, reverse-engineered games, built a <span class="hl">Tofino-style programmable switch on FPGA</span>, and currently keep two companies' and the university's infrastructure breathing as a sysadmin.</p>
+        <p>I write production code in <strong>C#, Python, Rust, C++, Go, Flutter, JS, Java/Kotlin</strong>, deploy and fine-tune LLMs because they're the most interesting toy of the decade, and have technically written COBOL — please don't ask.</p>
+        <p>I believe software should be <strong>fast</strong>, <strong>honest</strong>, and <strong>weird</strong>. This page is at least two of those. Maybe scroll down and break things.</p>
+      </div>
+      <div class="about-stats">
+        <div class="stat-card">
+          <div class="num">11<span style="color:var(--fg-2)">+</span></div>
+          <div class="label">languages_in_resume</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">3</div>
+          <div class="label">infrastructures_maintained</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">∞</div>
+          <div class="label">side_projects_in_flight</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">0</div>
+          <div class="label">regrets (still 0)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PROJECTS ============================ -->
+  <section id="projects">
+    <div class="section-label">SECTION</div>
+    <h2 class="section-title">
+      <span class="num">02.</span> ls ./projects/<span class="line-after"></span>
+    </h2>
+    <div class="projects-grid">
+      <div class="project" data-name="qcom-trustchain">
+        <div class="project-head">
+          <div class="project-name">qualcomm-trust-chain</div>
+          <div class="project-status research">RESEARCH</div>
+        </div>
+        <div class="project-desc">Research into the Qualcomm secure boot trust chain — analyzing how the chain of trust is anchored from PBL up through the bootloader stack.</div>
+        <div class="project-tags"><span>ARM</span><span>Boot Security</span><span>Firmware</span><span>Reverse</span></div>
+      </div>
+      <div class="project" data-name="xiaomi-vuln">
+        <div class="project-head">
+          <div class="project-name">xiaomi-vuln-analysis</div>
+          <div class="project-status research">RESEARCH</div>
+        </div>
+        <div class="project-desc">Vulnerability analysis on Xiaomi devices — fuzzing, IPC inspection, system surface mapping. Responsible disclosure where applicable.</div>
+        <div class="project-tags"><span>Android</span><span>Fuzzing</span><span>Vuln Research</span></div>
+      </div>
+      <div class="project" data-name="fpga-tofino">
+        <div class="project-head">
+          <div class="project-name">fpga-tofino-switch</div>
+          <div class="project-status hw">HARDWARE</div>
+        </div>
+        <div class="project-desc">A Tofino-style programmable switch on FPGA — P4-inspired match-action pipeline, custom parser, line-rate forwarding.</div>
+        <div class="project-tags"><span>FPGA</span><span>Verilog</span><span>P4</span><span>Networking</span></div>
+      </div>
+      <div class="project" data-name="game-reverse">
+        <div class="project-head">
+          <div class="project-name">game-reverse-toolkit</div>
+          <div class="project-status live">LIVE</div>
+        </div>
+        <div class="project-desc">Tooling for game reverse engineering — memory inspection, signature scanning, runtime hooks. Built for understanding, not griefing.</div>
+        <div class="project-tags"><span>C++</span><span>x64</span><span>Reverse</span></div>
+      </div>
+      <div class="project" data-name="infra-ops">
+        <div class="project-head">
+          <div class="project-name">infra-ops</div>
+          <div class="project-status live">LIVE</div>
+        </div>
+        <div class="project-desc">Production server operations across two companies and one university. Linux, Docker, K8s, monitoring, the works.</div>
+        <div class="project-tags"><span>Linux</span><span>Docker</span><span>K8s</span><span>DevOps</span></div>
+      </div>
+      <div class="project" data-name="llm-deploy">
+        <div class="project-head">
+          <div class="project-name">llm-deployment</div>
+          <div class="project-status live">LIVE</div>
+        </div>
+        <div class="project-desc">Self-hosted LLM deployment — fine-tuning, quantization, vLLM serving, RAG pipelines on consumer hardware.</div>
+        <div class="project-tags"><span>Python</span><span>PyTorch</span><span>vLLM</span><span>CUDA</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SKILLS ============================ -->
+  <section id="skills">
+    <div class="section-label">SECTION</div>
+    <h2 class="section-title">
+      <span class="num">03.</span> cat /etc/skills<span class="line-after"></span>
+    </h2>
+    <div class="skills-grid">
+      <div class="skill-col">
+        <h3>languages</h3>
+        <div class="skill-item"><span class="name">C# / Unity</span><span class="skill-bar" style="--lvl:90%"></span><span class="val">90</span></div>
+        <div class="skill-item"><span class="name">Python</span><span class="skill-bar" style="--lvl:92%"></span><span class="val">92</span></div>
+        <div class="skill-item"><span class="name">Rust</span><span class="skill-bar" style="--lvl:72%"></span><span class="val">72</span></div>
+        <div class="skill-item"><span class="name">C++</span><span class="skill-bar" style="--lvl:84%"></span><span class="val">84</span></div>
+        <div class="skill-item"><span class="name">Go</span><span class="skill-bar" style="--lvl:74%"></span><span class="val">74</span></div>
+        <div class="skill-item"><span class="name">JS / TS</span><span class="skill-bar" style="--lvl:82%"></span><span class="val">82</span></div>
+        <div class="skill-item"><span class="name">Java/Kotlin</span><span class="skill-bar" style="--lvl:76%"></span><span class="val">76</span></div>
+        <div class="skill-item"><span class="name">Flutter</span><span class="skill-bar" style="--lvl:78%"></span><span class="val">78</span></div>
+        <div class="skill-item"><span class="name">COBOL</span><span class="skill-bar" style="--lvl:12%"></span><span class="val">12</span></div>
+      </div>
+      <div class="skill-col">
+        <h3>ai / ml</h3>
+        <div class="skill-item"><span class="name">LLM Deploy</span><span class="skill-bar" style="--lvl:88%"></span><span class="val">88</span></div>
+        <div class="skill-item"><span class="name">Fine-tune</span><span class="skill-bar" style="--lvl:82%"></span><span class="val">82</span></div>
+        <div class="skill-item"><span class="name">PyTorch</span><span class="skill-bar" style="--lvl:86%"></span><span class="val">86</span></div>
+        <div class="skill-item"><span class="name">RAG/Agents</span><span class="skill-bar" style="--lvl:84%"></span><span class="val">84</span></div>
+        <div class="skill-item"><span class="name">vLLM</span><span class="skill-bar" style="--lvl:80%"></span><span class="val">80</span></div>
+        <div class="skill-item"><span class="name">Quantization</span><span class="skill-bar" style="--lvl:74%"></span><span class="val">74</span></div>
+      </div>
+      <div class="skill-col">
+        <h3>systems &amp; security</h3>
+        <div class="skill-item"><span class="name">Linux Admin</span><span class="skill-bar" style="--lvl:90%"></span><span class="val">90</span></div>
+        <div class="skill-item"><span class="name">Reverse Eng.</span><span class="skill-bar" style="--lvl:82%"></span><span class="val">82</span></div>
+        <div class="skill-item"><span class="name">Firmware</span><span class="skill-bar" style="--lvl:76%"></span><span class="val">76</span></div>
+        <div class="skill-item"><span class="name">FPGA/Verilog</span><span class="skill-bar" style="--lvl:74%"></span><span class="val">74</span></div>
+        <div class="skill-item"><span class="name">Docker/K8s</span><span class="skill-bar" style="--lvl:82%"></span><span class="val">82</span></div>
+        <div class="skill-item"><span class="name">Networking</span><span class="skill-bar" style="--lvl:78%"></span><span class="val">78</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CRT TERMINAL ============================ -->
+  <section id="crt" class="crt-section">
+    <div class="section-label">SECTION</div>
+    <h2 class="section-title">
+      <span class="num">04.</span> ./boot.sh<span class="line-after"></span>
+    </h2>
+
+    <p class="crt-intro">
+      Below is a working terminal. Press the <span class="blink-text">power button</span> to boot.
+      Try <code style="color:var(--green)">help</code>, <code style="color:var(--amber)">cli</code>, or — if you're feeling lucky — try to <code style="color:var(--red)">sudo su</code>.
+      Some say there's a way to actually become <code style="color:var(--red)">root</code>...
+    </p>
+
+    <div class="crt-stage">
+      <div class="crt-monitor">
+        <div class="crt-bezel">
+          <div class="crt-screen off" id="crt-screen">
+            <div class="crt-content" id="crt-content"></div>
+            <div class="crt-noise"></div>
+            <div class="crt-flash"></div>
+            <div class="crt-hint" id="crt-hint">
+              ─── PRESS POWER <span class="arrow">▶</span> ───<br/>
+              <span style="font-size:10px;opacity:0.6;letter-spacing:1px">model: PHOSPHOR-486DX</span>
+            </div>
+          </div>
+        </div>
+        <div class="crt-brand">PHOSPHOR</div>
+        <div class="crt-controls">
+          <div class="crt-led" id="crt-led"></div>
+          <button class="power-btn" id="power-btn" aria-label="power">⏻</button>
+        </div>
+      </div>
+      <div class="crt-base"></div>
+    </div>
+  </section>
+
+  <!-- ============================ CONTACT ============================ -->
+  <section id="contact">
+    <div class="section-label">SECTION</div>
+    <h2 class="section-title">
+      <span class="num">05.</span> ./contact.sh<span class="line-after"></span>
+    </h2>
+    <div class="about-text" style="max-width: 720px">
+      <p>Want to talk shop, hire me, or send a cursed bug report? Pick your poison:</p>
+      <p style="line-height: 2.2">
+        <span style="color:var(--green)">[email]</span>&nbsp;&nbsp;&nbsp;&nbsp;<a href="mailto:nancunchild@gmail.com">nancunchild@gmail.com</a> · <a href="mailto:admin@nancunchild.me">admin@nancunchild.me</a><br/>
+        <span style="color:var(--green)">[github]</span>&nbsp;&nbsp;&nbsp;<a href="https://github.com/NanCunChild" target="_blank" rel="noopener">github.com/NanCunChild</a><br/>
+        <span style="color:var(--green)">[x]</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://x.com/NanCunChild" target="_blank" rel="noopener">x.com/NanCunChild</a><br/>
+        <span style="color:var(--green)">[telegram]</span>&nbsp;<a href="https://t.me/NanCunChild" target="_blank" rel="noopener">t.me/NanCunChild</a><br/>
+        <span style="color:var(--green)">[discord]</span>&nbsp;&nbsp;<span style="color:var(--fg-0)">@NanCunChild</span><br/>
+        <span style="color:var(--green)">[gpg]</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://keys.openpgp.org/vks/v1/by-fingerprint/02959285A9303F1897DA95D89C2A58BAC2CFD595" target="_blank" rel="noopener" style="font-size:11px;word-break:break-all">02959285A9303F1897DA95D89C2A58BAC2CFD595</a><br/>
+        <span style="color:var(--green)">[yubikey]</span>&nbsp;<a href="https://keys.nancunchild.me/yubico_ncc_v3.asc" target="_blank" rel="noopener">keys.nancunchild.me/yubico_ncc_v3.asc</a>
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>built with <span class="heart">♥</span> and one shell of regret · no frameworks were harmed</span>
+    <span>v2.0 — <span id="footer-year"></span> · last_commit: just_now</span>
+  </footer>
+
+</main>
+
+<!-- CLI FULLSCREEN OVERLAY -->
+<div class="cli-overlay">
+  <div class="cli-overlay-screen">
+    <div class="cli-content" id="cli-content"></div>
+  </div>
+</div>
+
+<!-- MATRIX RAIN OVERLAY -->
+<canvas class="matrix-canvas" id="matrix-canvas"></canvas>
+<div class="matrix-exit">PRESS [ESC] OR ANY KEY TO EXIT</div>
+
+<div class="root-overlay" id="root-overlay">
+  <canvas class="fireworks-canvas" id="fireworks-canvas"></canvas>
+  <div class="root-banner">
+    <div class="big">ROOT</div>
+    <div class="sub">ACCESS GRANTED · UID 0</div>
+  </div>
+</div>
+
+<script src="terminal.js"></script>
+</body>
+</html>
