@@ -164,8 +164,10 @@ main {
   margin-bottom: 8px;
   text-transform: lowercase;
   letter-spacing: -0.02em;
+  overflow: hidden; 
 }
 .hero h1 .accent { color: var(--green); }
+.hero h1 .accent_nowrap_container{white-space: nowrap;}
 .hero h1 .cursor-blink {
   display: inline-block;
   background: var(--green);
@@ -912,6 +914,195 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
   .power-btn { width: 32px; height: 32px; }
   .crt-brand { left: 20px; bottom: 16px; font-size: 10px; }
 }
+
+/* ============================================================
+   ROOT PROMPT + PASSWORD INPUT + TERMINAL LOCK
+   ============================================================ */
+/* Red root prompt: root@phosphor # */
+.term-prompt .user.root,
+.term-prompt .sym.root,
+.term-prompt .at.root,
+.term-prompt .host.root,
+.term-prompt .path.root {
+  color: var(--red);
+  text-shadow: 0 0 4px var(--red), 0 0 10px var(--red-glow);
+}
+body.is-root .crt-content {
+  /* subtle red tint when running as root */
+  filter: contrast(1.05) brightness(1.05) drop-shadow(0 0 0.5px rgba(255,77,90,0.2));
+}
+
+/* Password input: hide typed chars (classic UNIX style: nothing shown) */
+.term-input.password {
+  color: transparent !important;
+  text-shadow: none !important;
+  caret-color: transparent !important;
+}
+
+/* Terminal locked after root: cursor stops blinking, input cannot receive focus */
+.term-input.locked {
+  pointer-events: none;
+  opacity: 0.6;
+}
+body.terminal-locked .term-cursor { animation: none; opacity: 0.3; }
+
+/* ============================================================
+   ROOT CELEBRATION OVERLAY
+   ============================================================ */
+.root-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 9500;
+  background: rgba(0, 0, 0, 0.92);
+  pointer-events: none;
+  overflow: hidden;
+}
+.root-overlay.active { display: block; animation: rootFadeIn 0.4s ease-out forwards; }
+@keyframes rootFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fireworks-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.root-banner {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-family: var(--f-mono);
+  pointer-events: none;
+  z-index: 2;
+}
+.root-banner .root-ascii {
+  font-family: var(--f-mono);
+  font-size: clamp(8px, 1.2vw, 14px);
+  line-height: 1.0;
+  color: #ffd86b;
+  text-shadow:
+    0 0 8px #ffd86b,
+    0 0 16px #ffb454,
+    0 0 32px rgba(255, 180, 60, 0.5);
+  white-space: pre;
+  margin-bottom: 24px;
+  animation: rootPulse 1.4s ease-in-out infinite;
+}
+.root-banner .big {
+  font-family: var(--f-display);
+  font-size: clamp(2.4rem, 6vw, 5rem);
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: #ffd86b;
+  text-shadow:
+    0 0 12px #ffd86b,
+    0 0 28px #ffb454,
+    0 0 60px rgba(255, 180, 60, 0.7);
+  margin-bottom: 12px;
+  animation: rootPulse 1.4s ease-in-out infinite;
+}
+.root-banner .sub {
+  font-size: clamp(0.8rem, 1.4vw, 1.1rem);
+  color: #ff4d5a;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 8px var(--red-glow);
+  margin-bottom: 8px;
+}
+.root-banner .hint {
+  margin-top: 28px;
+  font-size: 12px;
+  color: #6cd1ff;
+  letter-spacing: 0.2em;
+  opacity: 0.7;
+}
+@keyframes rootPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50%      { transform: scale(1.04); filter: brightness(1.4); }
+}
+
+/* ============================================================
+   V86 REAL BOOT HOST (mounted inside CRT screen)
+   ============================================================ */
+.v86-host {
+  position: absolute;
+  inset: 0;
+  z-index: 4; /* below scanlines (5) and glare (6), above crt-content */
+  display: none;
+  background: #000;
+  overflow: hidden;
+  /* Phosphor green tint for v86 output: desaturate -> tint sepia-yellow -> shift hue to green -> boost */
+  filter:
+    grayscale(1)
+    contrast(1.15)
+    brightness(1.1)
+    sepia(1)
+    hue-rotate(50deg)
+    saturate(2.6);
+}
+.v86-host.active { display: block; }
+.v86-host > div {
+  position: absolute;
+  inset: 0;
+  font-family: var(--f-crt), 'VT323', monospace;
+  font-size: 14px;
+  line-height: 14px;
+  white-space: pre;
+  color: #cfffd6;
+  background: #000;
+  overflow: hidden;
+  padding: 6px 8px;
+}
+.v86-host > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  background: #000;
+  image-rendering: pixelated;
+}
+.v86-host-loading {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--green);
+  font-family: var(--f-crt);
+  font-size: 18px;
+  text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+}
+.v86-host-loading .spinner {
+  display: inline-block;
+  width: 1ch;
+  text-align: left;
+  animation: spin 0.4s steps(4) infinite;
+}
+@keyframes spin {
+  0%   { content: '|'; }
+  25%  { content: '/'; }
+  50%  { content: '-'; }
+  75%  { content: '\\'; }
+  100% { content: '|'; }
+}
+.v86-exit-hint {
+  position: absolute;
+  bottom: 10px; right: 12px;
+  z-index: 8;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--amber);
+  background: rgba(0,0,0,0.55);
+  border: 1px solid var(--amber);
+  padding: 3px 8px;
+  letter-spacing: 1px;
+  pointer-events: none;
+  display: none;
+}
+.v86-host.active ~ .v86-exit-hint,
+.crt-screen .v86-exit-hint.show { display: block; }
+
 </style>
 </head>
 <body>
@@ -940,7 +1131,7 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
       <div class="hero-tag">SEGMENTATION FAULT — CORE DUMPED</div>
       <h1>
         hello<span class="accent">,</span><br/>
-        i am <span class="accent">NanCunChild</span><span class="cursor-blink"></span>
+        i am <span class="accent_nowrap_container"><span class="accent">NanCunChild</span><span class="cursor-blink"></span></span>
       </h1>
       <p class="hero-sub">
         Builder of <span class="hl">language models</span>, deployer of <span class="hl2">AIs</span> that should
@@ -1143,6 +1334,11 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
         <div class="crt-bezel">
           <div class="crt-screen off" id="crt-screen">
             <div class="crt-content" id="crt-content"></div>
+            <div class="v86-host" id="v86-host" tabindex="0">
+              <div></div>
+              <canvas></canvas>
+            </div>
+            <div class="v86-exit-hint" id="v86-exit-hint">PRESS [ESC] TO EXIT REAL LINUX</div>
             <div class="crt-noise"></div>
             <div class="crt-flash"></div>
             <div class="crt-hint" id="crt-hint">
@@ -1196,95 +1392,315 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
 <canvas class="matrix-canvas" id="matrix-canvas"></canvas>
 <div class="matrix-exit">PRESS [ESC] OR ANY KEY TO EXIT</div>
 
+<!-- ROOT CELEBRATION OVERLAY -->
+<div class="root-overlay" id="root-overlay" aria-hidden="true">
+  <canvas class="fireworks-canvas" id="fireworks-canvas"></canvas>
+  <div class="root-banner">
+<pre class="root-ascii">         .         .             .              .         .
+    .       *                .            *
+d8888b.  .d88b.   .d88b.  d888888b
+88  `8D .8P  Y8. .8P  Y8. `~~88~~'
+88oobY' 88    88 88    88    88  
+88`8b   88    88 88    88    88
+88 `88. `8b  d8' `8b  d8'    88
+88   YD  `Y88P'   `Y88P'     YP
+       .         *     .                             *             .
+                            .       *      .
+</pre>
+    <div class="big">ROOT ACCESS GRANTED</div>
+    <div class="sub">UID 0 · GID 0 · UNRESTRICTED</div>
+    <div class="hint">terminal locked · type 'realboot' from a fresh session to escape into the real world · or click power to reset</div>
+  </div>
+</div>
+
 <script>
 /* =============================================================
-   GLOBAL STATE
+   PHOSPHOR TERMINAL v2 — single-file, zero-dependency
+   - Deeper Linux simulation: cwd, perms, FS / PROCS / NETSTAT
+   - Realistic misconfig escalation:
+       PATH A: john /etc/passwd  -> DES-cracks 4-digit root pw
+       PATH B: su maintainer (empty pw) -> sudo su (NOPASSWD)
+   - grantRoot: red prompt + terminal lock + celebration
+   - realboot: v86 + Linux ISO from copy.sh, embedded in CRT
    ============================================================= */
-const startTime = Date.now();
 
-/* status bar update */
-function pad(n){ return n.toString().padStart(2,'0'); }
-function updateStatusBar(){
-  const now = new Date();
-  document.getElementById('sb-utc').textContent =
-    pad(now.getUTCHours())+':'+pad(now.getUTCMinutes())+':'+pad(now.getUTCSeconds());
-  const u = Math.floor((Date.now()-startTime)/1000);
-  document.getElementById('sb-uptime').textContent =
-    pad(Math.floor(u/3600))+':'+pad(Math.floor((u%3600)/60))+':'+pad(u%60);
-  document.getElementById('sb-load').textContent =
-    (0.2 + Math.random()*0.6).toFixed(2);
-}
-setInterval(updateStatusBar, 1000); updateStatusBar();
-document.getElementById('footer-year').textContent = new Date().getFullYear();
+/* ── GLOBAL STATE ── */
+const startTime = Date.now();
+const S = {
+  isOn: false,
+  booting: false,
+  isRoot: false,
+  isLocked: false,    // post-root lock
+  inV86: false,       // realboot mode
+  cwd: '/home/guest',
+  user: 'guest',
+  history: [],
+  histIdx: 0,
+  awaitingInput: null,// {type:'password', cb:(val)=>void}
+  envOverrides: {},
+};
+
+function homeDir(u){ return u === 'root' ? '/root' : '/home/' + u; }
 
 /* =============================================================
-   CRT POWER + TERMINAL
+   FAKE FILESYSTEM
+   - Old Linux flavor: DES /etc/passwd, no /etc/shadow
+   - Misconfigured maintainer (empty pw) + NOPASSWD sudoers
    ============================================================= */
-const screenEl = document.getElementById('crt-screen');
-const contentEl = document.getElementById('crt-content');
-const ledEl   = document.getElementById('crt-led');
-const hintEl  = document.getElementById('crt-hint');
-const powerBtn = document.getElementById('power-btn');
-let isOn = false;
-let booting = false;
-let history = [];
-let histIdx = 0;
-let currentInput = null;
+const FS = {
+  '/': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['bin','boot','dev','etc','home','proc','root','sbin','tmp','usr','var'] },
+  '/bin':  { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['bash','cat','chmod','cp','echo','grep','ls','mv','ps','pwd','rm','su','sh'] },
+  '/boot': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['vmlinuz-2.4.18','grub'] },
+  '/boot/vmlinuz-2.4.18': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'(binary kernel image — 1.4M)' },
+  '/boot/grub': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['menu.lst'] },
+  '/boot/grub/menu.lst': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'default 0\ntimeout 5\n\ntitle Phosphor Linux 2.4.18\nroot (hd0,0)\nkernel /boot/vmlinuz-2.4.18 root=/dev/sda1 ro' },
 
+  '/etc':  { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['hostname','hosts','issue','motd','passwd','resolv.conf','sudoers','ssh'] },
+  /* Old-school /etc/passwd with DES hashes (13 chars).
+     - root password is 4 numeric digits — easy to brute-force with john.
+     - daemon/bin: locked (* placeholder)
+     - guest: a real DES hash too
+     - maintainer: EMPTY second field => no password required (real misconfig).
+  */
+  '/etc/passwd': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
+'root:Yh2gHN.dxEFIs:0:0:root:/root:/bin/bash\n'+
+'daemon:*:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n'+
+'bin:*:2:2:bin:/bin:/usr/sbin/nologin\n'+
+'sys:*:3:3:sys:/dev:/usr/sbin/nologin\n'+
+'nobody:*:65534:65534:nobody:/nonexistent:/usr/sbin/nologin\n'+
+'guest:R7y3.9PQ8KdVI:1000:1000:Guest User:/home/guest:/bin/bash\n'+
+'maintainer::1001:1001:System Maintainer (DO NOT REMOVE):/home/maintainer:/bin/bash\n' },
+  /* No /etc/shadow on this system (legacy install).
+     -> attackers can crack /etc/passwd directly. */
+
+  '/etc/sudoers': { type:'f', perm:'-r--r-----', owner:'root', group:'root', content:
+'# /etc/sudoers — managed by hand, sorry\n'+
+'#\n'+
+'Defaults\tenv_reset\n'+
+'Defaults\tmail_badpass\n'+
+'Defaults\tsecure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'+
+'\n'+
+'root\tALL=(ALL:ALL) ALL\n'+
+'%admin\tALL=(ALL) ALL\n'+
+'\n'+
+'# TODO: remove this once the migration is done — left for the on-call account\n'+
+'maintainer\tALL=(ALL:ALL) NOPASSWD: ALL\n' },
+
+  '/etc/hostname':    { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'phosphor' },
+  '/etc/hosts':       { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
+'127.0.0.1\tlocalhost\n127.0.1.1\tphosphor\n10.0.0.1\tgateway.local\n10.0.0.42\tncc-server.internal\n' },
+  '/etc/resolv.conf': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'nameserver 8.8.8.8\nnameserver 1.1.1.1\nsearch local\n' },
+  '/etc/issue':       { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'Phosphor GNU/Linux 2.4 \\n \\l\n' },
+  '/etc/motd':        { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
+'╔══════════════════════════════════════════════════════╗\n'+
+'║   Welcome to Phosphor Linux 2.4 (kernel 2.4.18)     ║\n'+
+'║   Maintained by NanCunChild                         ║\n'+
+'║                                                     ║\n'+
+'║   * Legacy install — /etc/shadow not in use.        ║\n'+
+'║   * Tools: john, ssh, sudo, common GNU coreutils.   ║\n'+
+'║   * If something is wrong, page the on-call         ║\n'+
+'║     account: see /etc/passwd line 7.                ║\n'+
+'╚══════════════════════════════════════════════════════╝\n' },
+
+  '/etc/ssh':         { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['sshd_config'] },
+  '/etc/ssh/sshd_config': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
+'Port 22\nProtocol 2\nPermitRootLogin yes\nPasswordAuthentication yes\n# Note: PAM disabled — falls back to /etc/passwd directly.\n' },
+
+  '/home': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['guest','maintainer'] },
+
+  '/home/guest': { type:'d', perm:'drwxr-xr-x', owner:'guest', group:'guest', children:['.bash_history','.bashrc','.ssh','about.md','notes.txt','projects'] },
+  '/home/guest/.bashrc': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
+'# ~/.bashrc\nexport PS1="\\u@\\h:\\w\\$ "\nalias ll="ls -la"\nalias ..="cd .."\n' },
+  '/home/guest/.bash_history': { type:'f', perm:'-rw-------', owner:'guest', group:'guest', content:
+'ls -la /etc\ncat /etc/motd\ncat /etc/passwd\n# tried john on the passwd, it ran for ages but eventually finished\njohn --show /etc/passwd\nsu -\n# forgot the new root password again, let me ping admin\n' },
+  '/home/guest/.ssh': { type:'d', perm:'drwx------', owner:'guest', group:'guest', children:['id_rsa.pub','known_hosts'] },
+  '/home/guest/.ssh/id_rsa.pub': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDx... guest@phosphor\n' },
+  '/home/guest/.ssh/known_hosts': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'localhost ssh-rsa AAAAB3...\nphosphor ssh-rsa AAAAB3...\n' },
+  '/home/guest/about.md': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
+'# NanCunChild\nMicroelectronics @ Xidian University\nFocus: AI · Security · Systems · FPGA\n\nLanguages: C#, Python, Rust, C++, Go, Flutter, JS, Java/Kotlin, COBOL(lol)\n' },
+  '/home/guest/notes.txt': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:
+'== Dev Notes ==\n- /etc/shadow not used here — legacy install.\n- root pw was reset to a 4-digit number after the lockout incident. (yes, really.)\n- maintainer is the on-call account; see sudoers if you need a hand.\n- If desperate: john /etc/passwd  — the box is slow but it gets there.\n' },
+  '/home/guest/projects': { type:'d', perm:'drwxr-xr-x', owner:'guest', group:'guest', children:['readme'] },
+  '/home/guest/projects/readme': { type:'f', perm:'-rw-r--r--', owner:'guest', group:'guest', content:'See main page for project list. type `projects` in this terminal for a summary.\n' },
+
+  '/home/maintainer': { type:'d', perm:'drwxr-xr-x', owner:'maintainer', group:'maintainer', children:['.bash_history','TODO'] },
+  '/home/maintainer/.bash_history': { type:'f', perm:'-rw-------', owner:'maintainer', group:'maintainer', content:
+'sudo su\nwhoami\napt update\nshutdown -r +1\n' },
+  '/home/maintainer/TODO': { type:'f', perm:'-rw-r--r--', owner:'maintainer', group:'maintainer', content:
+'- [ ] set a real password for this account\n- [ ] migrate to /etc/shadow\n- [ ] remove NOPASSWD line from sudoers once done\n' },
+
+  '/proc': { type:'d', perm:'dr-xr-xr-x', owner:'root', group:'root', children:['cpuinfo','meminfo','version','uptime','loadavg'] },
+  '/proc/cpuinfo': { type:'f', perm:'-r--r--r--', owner:'root', group:'root', content:
+'processor\t: 0\nvendor_id\t: PhosphorCore\nmodel name\t: PhosphorCore @ 33 MHz\ncache size\t: 8 KB\nbogomips\t: 66.00\n' },
+  '/proc/meminfo': { type:'f', perm:'-r--r--r--', owner:'root', group:'root', content:
+'MemTotal:       16384 kB\nMemFree:         4096 kB\nBuffers:         1024 kB\nCached:          3072 kB\n' },
+  '/proc/version': { type:'f', perm:'-r--r--r--', owner:'root', group:'root', content:'Linux version 2.4.18-phosphor (root@buildhost) (gcc 2.95.4) #1 Mon Jan 1 00:00:00 UTC 2001\n' },
+  '/proc/uptime': { type:'f', perm:'-r--r--r--', owner:'root', group:'root', get content(){ const s = Math.floor((Date.now()-startTime)/1000); return s+'.00 '+Math.floor(s*0.8)+'.00\n'; } },
+  '/proc/loadavg': { type:'f', perm:'-r--r--r--', owner:'root', group:'root', get content(){ return (0.2+Math.random()*0.6).toFixed(2)+' '+(0.1+Math.random()*0.4).toFixed(2)+' '+(0.1+Math.random()*0.3).toFixed(2)+' 1/42 1337\n'; } },
+
+  '/root': { type:'d', perm:'drwx------', owner:'root', group:'root', children:['.flag','secrets.txt','xinwei.sh'] },
+  '/root/.flag': { type:'f', perm:'-rw-------', owner:'root', group:'root', content:'FLAG{ph0sph0r_l1nux_pwn3d_b4_l3g4cy_des}\n' },
+  '/root/secrets.txt': { type:'f', perm:'-rw-------', owner:'root', group:'root', content:
+'== Root Secrets ==\nGPG: 02959285A9303F1897DA95D89C2A58BAC2CFD595\nYubiKey: keys.nancunchild.me/yubico_ncc_v3.asc\n' },
+  '/root/xinwei.sh': { type:'f', perm:'-rwx------', owner:'root', group:'root', content:'#!/bin/bash\n# 西电人专属彩蛋\necho "厚德 求真 砺学 笃行 — 西安电子科技大学"\n' },
+
+  '/sbin': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['init','reboot','shutdown'] },
+  '/tmp':  { type:'d', perm:'drwxrwxrwt', owner:'root', group:'root', children:[] },
+  '/usr':  { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['bin','share'] },
+  '/usr/bin': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['john','perl','python','ssh','vim','wget'] },
+  '/usr/share': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['doc'] },
+  '/usr/share/doc': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['phosphor-release'] },
+  '/usr/share/doc/phosphor-release': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:'Phosphor Linux 2.4 — single-file edition. (c) NanCunChild.\n' },
+
+  '/var':     { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['log'] },
+  '/var/log': { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['auth.log','dmesg','syslog'] },
+  '/var/log/auth.log': { type:'f', perm:'-rw-r-----', owner:'root', group:'root', content:
+'May 24 03:14:07 phosphor sshd[1337]: Failed password for root from 192.168.1.100 port 51234\n'+
+'May 24 03:14:09 phosphor sshd[1337]: Failed password for root from 192.168.1.100 port 51234\n'+
+'May 24 03:14:11 phosphor sshd[1337]: Failed password for root from 192.168.1.100 port 51234\n'+
+'May 24 03:15:22 phosphor sudo:  guest : 1 incorrect password attempt ; TTY=pts/0 ; PWD=/home/guest ; USER=root ; COMMAND=/bin/su\n'+
+'May 24 03:18:01 phosphor su: pam_unix(su:auth): authentication failure ; user=root\n'+
+'May 24 03:22:41 phosphor sudo:  maintainer : TTY=pts/1 ; PWD=/home/maintainer ; USER=root ; COMMAND=/bin/su\n' },
+  '/var/log/dmesg': { type:'f', perm:'-rw-r--r--', owner:'root', group:'root', content:
+'[    0.000000] Linux version 2.4.18-phosphor (root@buildhost)\n[    0.001234] CPU: PhosphorCore @ 33 MHz\n[    3.221000] EXT2-fs (sda1): mounted filesystem\n' },
+  '/var/log/syslog': { type:'f', perm:'-rw-r-----', owner:'root', group:'root', content:
+'May 24 00:00:01 phosphor cron[456]: (root) CMD (/usr/bin/backup.sh)\nMay 24 03:00:00 phosphor ntpd[789]: time sync complete\n' },
+
+  '/dev':       { type:'d', perm:'drwxr-xr-x', owner:'root', group:'root', children:['null','random','tty0','zero'] },
+  '/dev/null':  { type:'f', perm:'crw-rw-rw-', owner:'root', group:'root', content:'' },
+  '/dev/zero':  { type:'f', perm:'crw-rw-rw-', owner:'root', group:'root', content:'' },
+  '/dev/random':{ type:'f', perm:'crw-rw-rw-', owner:'root', group:'root', get content(){ return Array.from({length:32},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join('')+'\n'; } },
+  '/dev/tty0':  { type:'f', perm:'crw--w----', owner:'root', group:'root', content:'' },
+};
+
+/* ── FAKE PROCESS TABLE ── */
+const PROCS = [
+  { pid:1,    user:'root',  cpu:'0.0', mem:'0.4', tty:'?',     stat:'Ss',  cmd:'/sbin/init' },
+  { pid:42,   user:'root',  cpu:'0.0', mem:'1.2', tty:'?',     stat:'Ss',  cmd:'/usr/sbin/sshd -D' },
+  { pid:108,  user:'root',  cpu:'0.0', mem:'0.8', tty:'?',     stat:'S',   cmd:'/usr/sbin/cron -f' },
+  { pid:201,  user:'root',  cpu:'0.0', mem:'0.3', tty:'?',     stat:'S',   cmd:'/usr/sbin/syslogd' },
+  { pid:512,  user:'root',  cpu:'0.1', mem:'1.0', tty:'?',     stat:'S',   cmd:'/usr/sbin/nginx -g daemon off' },
+  { pid:666,  user:'guest', cpu:'0.0', mem:'0.2', tty:'pts/0', stat:'Ss',  cmd:'-bash' },
+  { pid:667,  user:'guest', cpu:'0.1', mem:'0.1', tty:'pts/0', stat:'R+',  cmd:'phosphor-term' },
+  { pid:1024, user:'root',  cpu:'0.0', mem:'0.5', tty:'?',     stat:'S',   cmd:'/usr/sbin/atd' },
+  { pid:1337, user:'maintainer', cpu:'0.0', mem:'0.1', tty:'pts/1', stat:'S', cmd:'tail -f /var/log/auth.log' },
+];
+
+/* ── FAKE NETWORK ── */
+const NETSTAT = [
+  { proto:'tcp', local:'0.0.0.0:22',   remote:'0.0.0.0:*', state:'LISTEN',      pid:'42/sshd' },
+  { proto:'tcp', local:'0.0.0.0:80',   remote:'0.0.0.0:*', state:'LISTEN',      pid:'512/nginx' },
+  { proto:'tcp', local:'0.0.0.0:443',  remote:'0.0.0.0:*', state:'LISTEN',      pid:'512/nginx' },
+  { proto:'tcp', local:'127.0.0.1:25', remote:'0.0.0.0:*', state:'LISTEN',      pid:'201/exim4' },
+  { proto:'tcp', local:'10.0.0.42:22', remote:'192.168.1.100:54321', state:'ESTABLISHED', pid:'42/sshd' },
+  { proto:'udp', local:'0.0.0.0:68',   remote:'0.0.0.0:*', state:'',            pid:'-/dhclient' },
+];
+const IFCONFIG_OUT =
+'eth0      Link encap:Ethernet  HWaddr 02:42:0a:00:00:2a\n'+
+'          inet addr:10.0.0.42  Bcast:10.0.0.255  Mask:255.255.255.0\n'+
+'          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1\n'+
+'          RX packets:1048576 errors:0 dropped:0 overruns:0 frame:0\n'+
+'          TX packets: 524288 errors:0 dropped:0 overruns:0 carrier:0\n'+
+'          collisions:0 txqueuelen:1000\n'+
+'\n'+
+'lo        Link encap:Local Loopback\n'+
+'          inet addr:127.0.0.1  Mask:255.0.0.0\n'+
+'          UP LOOPBACK RUNNING  MTU:65536  Metric:1\n';
+
+/* ── DOM REFS ── */
+const screenEl  = document.getElementById('crt-screen');
+const contentEl = document.getElementById('crt-content');
+const ledEl     = document.getElementById('crt-led');
+const hintEl    = document.getElementById('crt-hint');
+const powerBtn  = document.getElementById('power-btn');
+const cliEl     = document.getElementById('cli-content');
+const v86Host   = document.getElementById('v86-host');
+const v86Hint   = document.getElementById('v86-exit-hint');
+const rootOverlay = document.getElementById('root-overlay');
+const fwCanvas    = document.getElementById('fireworks-canvas');
+
+let currentInput = null;
+let activeContent = contentEl; // swapped to cliEl in cli-mode
+
+/* ── STATUS BAR ── */
+function pad(n){ return n.toString().padStart(2, '0'); }
+function updateStatusBar(){
+  const now = new Date();
+  const utc = pad(now.getUTCHours())+':'+pad(now.getUTCMinutes())+':'+pad(now.getUTCSeconds());
+  const u = Math.floor((Date.now()-startTime)/1000);
+  const up = pad(Math.floor(u/3600))+':'+pad(Math.floor((u%3600)/60))+':'+pad(u%60);
+  const utcEl = document.getElementById('sb-utc');
+  const upEl  = document.getElementById('sb-uptime');
+  const loadEl = document.getElementById('sb-load');
+  if (utcEl)  utcEl.textContent = utc;
+  if (upEl)   upEl.textContent = up;
+  if (loadEl) loadEl.textContent = (0.2 + Math.random()*0.6).toFixed(2);
+}
+setInterval(updateStatusBar, 1000); updateStatusBar();
+const fy = document.getElementById('footer-year'); if (fy) fy.textContent = new Date().getFullYear();
+
+/* ── POWER ── */
 powerBtn.addEventListener('click', () => {
-  if (booting) return;
-  if (!isOn) powerOn();
-  else powerOff();
+  if (S.booting) return;
+  if (S.inV86) { stopRealBoot(); return; }
+  if (!S.isOn) powerOn(); else powerOff();
 });
 
 function powerOn(){
-  if (isOn || booting) return;
-  booting = true;
+  if (S.isOn || S.booting) return;
+  S.booting = true;
+  // Reset state on a fresh boot (escape post-root lock)
+  S.isRoot = false; S.isLocked = false; S.user = 'guest'; S.cwd = '/home/guest';
+  S.history = []; S.histIdx = 0; S.awaitingInput = null;
+  document.body.classList.remove('is-root','terminal-locked');
+  hideRootOverlay();
+
   screenEl.classList.remove('off');
   screenEl.classList.add('powering-on');
-  // play flash anim, then start boot sequence
   setTimeout(() => {
     screenEl.classList.add('on');
     ledEl.classList.add('on');
     bootSequence();
   }, 300);
-  setTimeout(()=> screenEl.classList.remove('powering-on'), 1200);
+  setTimeout(() => screenEl.classList.remove('powering-on'), 1200);
 }
 function powerOff(){
-  isOn = false;
-  booting = false;
+  S.isOn = false; S.booting = false; S.isLocked = false;
   screenEl.classList.add('off');
   screenEl.classList.remove('on');
   ledEl.classList.remove('on');
   contentEl.innerHTML = '';
-  // visual: brief collapse like old CRT
-  // (handled by .off state)
+  document.body.classList.remove('is-root','terminal-locked');
+  hideRootOverlay();
 }
 
-/* ---------- Boot sequence ---------- */
+/* ── BOOT SEQUENCE ── */
 const bootLines = [
   { t:'PHOSPHOR BIOS v4.2.86 — (c) Phosphor Industries 1989-1993', cls:'bright', d:200 },
-  { t:'Memory Test : 640K OK ............... ', cls:'dim', d:150 },
+  { t:'Memory Test : 16384K OK ............ ', cls:'dim', d:150 },
   { t:'Detecting IDE drives ............... [OK]', cls:'dim', d:150 },
   { t:'Detecting CDROM .................... [NONE]', cls:'dim', d:120 },
   { t:'Detecting AT keyboard .............. [OK]', cls:'dim', d:120 },
   { t:'Booting from drive C: ...', cls:'dim', d:200 },
-  { t:'', d:100 },
-  { t:'GRUB version 0.97 — booting kernel-2.6.x-phosphor', cls:'amber', d:300 },
-  { t:'[    0.000000] Linux version 2.6.32-phosphor (root@localhost)', cls:'dim', d:60 },
+  { t:'', d:80 },
+  { t:'GRUB version 0.97 — booting phosphor-linux 2.4.18', cls:'amber', d:280 },
+  { t:'[    0.000000] Linux version 2.4.18-phosphor (root@buildhost)', cls:'dim', d:60 },
   { t:'[    0.001234] CPU: PhosphorCore @ 33 MHz', cls:'dim', d:60 },
   { t:'[    0.002001] Memory: 8192k/16384k available', cls:'dim', d:60 },
-  { t:'[    0.003120] Mount-cache hash table entries: 256', cls:'dim', d:50 },
   { t:'[    0.012005] PCI: Probing PCI hardware', cls:'dim', d:50 },
   { t:'[    0.045221] usbcore: registered new device driver usb', cls:'dim', d:50 },
   { t:'[    0.067100] sda: sda1 sda2 sda3', cls:'dim', d:60 },
-  { t:'[    0.083102] EXT4-fs (sda1): mounted filesystem', cls:'dim', d:60 },
+  { t:'[    0.083102] EXT2-fs (sda1): mounted filesystem', cls:'dim', d:60 },
   { t:'[    0.120044] Freeing unused kernel memory: 384k freed', cls:'dim', d:80 },
   { t:'', d:80 },
-  { t:'Welcome to Phosphor Linux 2.6 (tty1)', cls:'bright', d:200 },
+  { t:'Welcome to Phosphor Linux 2.4 (tty1)', cls:'bright', d:200 },
   { t:'', d:50 },
-  { t:'    Type "help" for available commands.', cls:'dim', d:100 },
-  { t:'    Type "cli" to take over the whole site.', cls:'dim', d:100 },
+  { t:'    Type "help" for available commands.', cls:'dim', d:80 },
+  { t:'    Type "cli"      to take over the whole site.', cls:'dim', d:80 },
+  { t:'    Type "realboot" to load v86 + a real Linux kernel.', cls:'dim', d:80 },
+  { t:'', d:60 },
+  { t:'    There is also a way to become root. The system has been', cls:'dim', d:80 },
+  { t:'    misconfigured by a tired sysadmin. Have a poke around /etc/.', cls:'dim', d:80 },
   { t:'', d:100 },
 ];
 
@@ -1293,586 +1709,1268 @@ async function bootSequence(){
   hintEl.style.display = 'none';
   for (const line of bootLines){
     appendLine(line.t, line.cls);
-    contentEl.scrollTop = contentEl.scrollHeight;
+    activeContent.scrollTop = activeContent.scrollHeight;
     await sleep(line.d);
   }
-  isOn = true; booting = false;
+  S.isOn = true; S.booting = false;
   showPrompt();
 }
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-/* ---------- Output helpers ---------- */
+/* ── OUTPUT HELPERS ── */
 function appendLine(text, cls){
-  const div = document.createElement('div');
-  div.className = 'term-line' + (cls ? ' ' + cls : '');
-  div.textContent = text;
-  contentEl.appendChild(div);
-  contentEl.scrollTop = contentEl.scrollHeight;
-  return div;
+  const d = document.createElement('div');
+  d.className = 'term-line' + (cls ? ' ' + cls : '');
+  d.textContent = text == null ? '' : String(text);
+  activeContent.appendChild(d);
+  activeContent.scrollTop = activeContent.scrollHeight;
+  return d;
 }
 function appendHTML(html, cls){
-  const div = document.createElement('div');
-  div.className = 'term-line' + (cls ? ' ' + cls : '');
-  div.innerHTML = html;
-  contentEl.appendChild(div);
-  contentEl.scrollTop = contentEl.scrollHeight;
-  return div;
+  const d = document.createElement('div');
+  d.className = 'term-line' + (cls ? ' ' + cls : '');
+  d.innerHTML = html;
+  activeContent.appendChild(d);
+  activeContent.scrollTop = activeContent.scrollHeight;
+  return d;
+}
+function escapeHTML(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function buildPromptHTML(){
-  return '<span class="user">guest</span><span class="at">@</span>'+
-         '<span class="host">phosphor</span><span class="at">:</span>'+
-         '<span class="path">~</span><span class="sym">$</span>';
+/* ── PROMPT ── */
+function shortCwd(){
+  const home = homeDir(S.user);
+  if (S.cwd === home) return '~';
+  if (S.cwd.startsWith(home + '/')) return '~' + S.cwd.slice(home.length);
+  return S.cwd;
+}
+function getPromptHTML(){
+  const isR = S.isRoot;
+  const u = S.user;
+  const sym = isR ? '#' : '$';
+  const cls = isR ? ' root' : '';
+  return '<span class="user'+cls+'">'+escapeHTML(u)+'</span>'+
+         '<span class="at'+cls+'">@</span>'+
+         '<span class="host'+cls+'">phosphor</span>'+
+         '<span class="at'+cls+'">:</span>'+
+         '<span class="path'+cls+'">'+escapeHTML(shortCwd())+'</span>'+
+         '<span class="sym'+cls+'">'+sym+' </span>';
 }
 
 function showPrompt(){
-  // remove any active input
-  const lineDiv = document.createElement('div');
-  lineDiv.className = 'term-input-line';
-  lineDiv.innerHTML = '<span class="term-prompt">'+buildPromptHTML()+'</span>';
-  const input = document.createElement('input');
-  input.className = 'term-input';
-  input.setAttribute('spellcheck','false');
-  input.setAttribute('autocomplete','off');
-  input.setAttribute('autocapitalize','off');
-  const cursor = document.createElement('span');
-  cursor.className = 'term-cursor';
-  lineDiv.appendChild(input);
-  lineDiv.appendChild(cursor);
-  contentEl.appendChild(lineDiv);
-  input.focus();
-  currentInput = input;
-
-  input.addEventListener('keydown', onKey);
-  contentEl.scrollTop = contentEl.scrollHeight;
-}
-function freezePrompt(value){
-  // remove input, replace with frozen text
-  if (!currentInput) return;
-  const line = currentInput.parentElement;
-  line.innerHTML = '<span class="term-prompt">'+buildPromptHTML()+'</span>'+
-                   '<span style="color:var(--green)">'+escapeHTML(value)+'</span>';
-  currentInput = null;
-}
-function escapeHTML(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-/* keyboard handling */
-function onKey(e){
-  if (e.key === 'Enter'){
-    const val = currentInput.value;
-    freezePrompt(val);
-    if (val.trim()) {
-      history.push(val);
-      histIdx = history.length;
-    }
-    handleCommand(val.trim());
-    return;
-  }
-  if (e.key === 'ArrowUp'){
-    e.preventDefault();
-    if (history.length === 0) return;
-    histIdx = Math.max(0, histIdx-1);
-    currentInput.value = history[histIdx] || '';
-    return;
-  }
-  if (e.key === 'ArrowDown'){
-    e.preventDefault();
-    histIdx = Math.min(history.length, histIdx+1);
-    currentInput.value = history[histIdx] || '';
-    return;
-  }
-  if (e.key === 'Tab'){
-    e.preventDefault();
-    const cur = currentInput.value;
-    const match = Object.keys(commands).find(c => c.startsWith(cur));
-    if (match) currentInput.value = match;
-    return;
-  }
-  if (e.key === 'l' && e.ctrlKey){
-    e.preventDefault();
-    handleCommand('clear');
-    return;
-  }
-}
-
-/* keep terminal focused when user clicks on the screen */
-contentEl.addEventListener('click', () => { if (currentInput) currentInput.focus(); });
-
-/* =============================================================
-   COMMAND IMPLEMENTATIONS
-   ============================================================= */
-const commands = {
-  help: ()=>{
-    appendLine('available commands:', 'bright');
-    appendLine('');
-    const groups = [
-      ['INFO', ['whoami','about','projects','skills','contact','ls','cat <file>','pwd','uname','neofetch']],
-      ['CONTROL', ['theme <name>','open <project>','goto','cli','clear','reboot','shutdown']],
-      ['FUN', ['matrix','cmatrix','sl','cowsay <msg>','snake','fortune','sudo <anything>','rm -rf /']],
-    ];
-    for (const [g, cmds] of groups){
-      appendHTML('  <span style="color:var(--amber)">'+g+'</span>', '');
-      for (const c of cmds){
-        appendHTML('    <span style="color:var(--green)">'+c.split(' ')[0]+'</span> <span style="color:var(--fg-1);font-size:0.9em">'+ (c.includes(' ') ? c.slice(c.indexOf(' ')) : '') +'</span>');
-      }
-    }
-    appendLine('');
-    appendLine('tip: arrow keys = history, tab = autocomplete, ctrl-l = clear', 'dim');
-    showPrompt();
-  },
-
-  whoami: ()=>{
-    appendLine('guest', 'bright');
-    appendLine('(but the real owner is somewhere out there, building things)', 'dim');
-    showPrompt();
-  },
-
-  about: ()=>{
-    appendLine('── ABOUT ──', 'amber');
-    appendLine('Name      : NanCunChild');
-    appendLine('Role      : Engineer / ML practitioner');
-    appendLine('Lives in  : a terminal, mostly');
-    appendLine('Currently : deploying language models');
-    appendLine('Fuel      : coffee + curiosity');
-    appendLine('');
-    appendLine('Scroll up on the page for a less-condensed version.', 'dim');
-    showPrompt();
-  },
-
-  projects: ()=>{
-    appendLine('── PROJECTS ──', 'amber');
-    const ps = document.querySelectorAll('.project');
-    ps.forEach((p, i) => {
-      const name = p.dataset.name;
-      const status = p.querySelector('.project-status').textContent;
-      const desc = p.querySelector('.project-desc').textContent;
-      appendHTML('  <span style="color:var(--green)">'+(i+1)+'. '+name+'</span> <span style="color:var(--amber)">['+status+']</span>');
-      appendHTML('     <span style="color:var(--fg-1)">'+desc+'</span>');
-    });
-    appendLine('');
-    appendLine('use "open <name>" to jump to one on the page.', 'dim');
-    showPrompt();
-  },
-
-  skills: ()=>{
-    appendLine('── SKILLS ──', 'amber');
-    const cols = document.querySelectorAll('.skill-col');
-    cols.forEach(col => {
-      appendHTML('<span style="color:var(--green)">'+col.querySelector('h3').textContent.toUpperCase()+'</span>');
-      col.querySelectorAll('.skill-item').forEach(s => {
-        const name = s.querySelector('.name').textContent;
-        const val = parseInt(s.querySelector('.val').textContent);
-        const blocks = Math.round(val/5);
-        const bar = '█'.repeat(blocks) + '░'.repeat(20-blocks);
-        appendHTML('  '+name.padEnd(14)+' <span style="color:var(--green)">'+bar+'</span> '+val);
-      });
-      appendLine('');
-    });
-    showPrompt();
-  },
-
-  contact: ()=>{
-    appendLine('── CONTACT ──', 'amber');
-    appendLine('email  : you@example.com');
-    appendLine('github : github.com/NanCunChild');
-    appendLine('x      : x.com/NanCunChild');
-    appendLine('gpg    : 0xDEADBEEFCAFEBABE');
-    showPrompt();
-  },
-
-  ls: (arg)=>{
-    appendLine('about.md  projects/  skills.txt  contact.vcf  .secrets  .ssh/');
-    showPrompt();
-  },
-
-  pwd: ()=>{
-    appendLine('/home/guest');
-    showPrompt();
-  },
-
-  uname: ()=>{
-    appendLine('Linux phosphor 2.6.32-phosphor #1 i386 GNU/Linux');
-    showPrompt();
-  },
-
-  cat: (arg)=>{
-    if (!arg){ appendLine('cat: missing operand', 'red'); return showPrompt(); }
-    const files = {
-      'about.md': ['# NanCunChild','','engineer, ml practitioner, terminal enjoyer.','spends free time deploying models that probably shouldnt be deployed.'],
-      'skills.txt': ['C# Python Node TS Bash Linux Windows Docker CUDA Vim'],
-      'contact.vcf': ['BEGIN:VCARD','EMAIL:you@example.com','URL:github.com/NanCunChild','END:VCARD'],
-      '.secrets': ['nice try.'],
-    };
-    if (files[arg]) {
-      files[arg].forEach(l => appendLine(l));
-    } else if (arg === '/etc/passwd') {
-      appendLine('root:x:0:0:root:/root:/bin/bash');
-      appendLine('guest:x:1000:1000:guest:/home/guest:/bin/bash');
-    } else {
-      appendLine('cat: '+arg+': No such file or directory', 'red');
-    }
-    showPrompt();
-  },
-
-  neofetch: ()=>{
-    const art = [
-      '       .--.       ',
-      '      |o_o |      ',
-      '      |:_/ |      ',
-      '     //   \\ \\     ',
-      '    (|     | )    ',
-      "   /'\\_   _/`\\   ",
-      '   \\___)=(___/    ',
-    ];
-    const info = [
-      'guest@phosphor',
-      '──────────────',
-      'OS: Phosphor Linux 2.6',
-      'Kernel: 2.6.32-phosphor',
-      'Shell: phosh 0.1',
-      'Resolution: 640x480',
-      'Terminal: phosphor-term',
-      'CPU: PhosphorCore @ 33 MHz',
-      'GPU: integrated (technically)',
-      'Memory: 14M / 16M',
-    ];
-    const colors = ['var(--green)','var(--amber)','var(--cyan)','var(--magenta)','var(--yellow)','var(--red)','var(--green)'];
-    for (let i=0; i<Math.max(art.length, info.length); i++){
-      const a = (art[i] || '      ').padEnd(20);
-      const inf = info[i] || '';
-      const c = i===0 ? 'var(--green)' : 'var(--fg-0)';
-      appendHTML('<span style="color:var(--green)">'+escapeHTML(a)+'</span><span style="color:'+c+'">'+escapeHTML(inf)+'</span>');
-    }
-    showPrompt();
-  },
-
-  clear: ()=>{
-    contentEl.innerHTML = '';
-    showPrompt();
-  },
-
-  reboot: async ()=>{
-    appendLine('Broadcast message: rebooting...', 'amber');
-    await sleep(600);
-    powerOff();
-    await sleep(400);
-    powerOn();
-  },
-
-  shutdown: async ()=>{
-    appendLine('System is going down NOW!', 'red');
-    await sleep(800);
-    powerOff();
-  },
-
-  theme: (arg)=>{
-    const valid = ['green','amber','ice','blood'];
-    if (!arg || !valid.includes(arg)) {
-      appendLine('usage: theme <green|amber|ice|blood>', 'red');
-      return showPrompt();
-    }
-    document.body.classList.remove('theme-amber','theme-ice','theme-blood');
-    if (arg !== 'green') document.body.classList.add('theme-'+arg);
-    appendLine('theme set to: '+arg, 'bright');
-    showPrompt();
-  },
-
-  open: (arg)=>{
-    if (!arg){ appendLine('usage: open <project-name>', 'red'); return showPrompt(); }
-    const target = document.querySelector('.project[data-name="'+arg+'"]');
-    if (target){
-      target.scrollIntoView({behavior:'smooth', block:'center'});
-      target.style.transition = 'all 0.3s';
-      target.style.borderColor = 'var(--green)';
-      target.style.boxShadow = '0 0 30px var(--green-glow)';
-      setTimeout(()=>{ target.style.borderColor=''; target.style.boxShadow=''; }, 2000);
-      appendLine('navigating to '+arg+'...', 'cyan');
-    } else {
-      appendLine('open: no project named "'+arg+'"', 'red');
-    }
-    showPrompt();
-  },
-
-  goto: (arg)=>{
-    if (!arg){ appendLine('usage: goto <hero|about|projects|skills|contact|crt>', 'red'); return showPrompt(); }
-    const el = document.getElementById(arg);
-    if (el){ el.scrollIntoView({behavior:'smooth'}); appendLine('jumping to #'+arg, 'cyan'); }
-    else appendLine('goto: no section "'+arg+'"', 'red');
-    showPrompt();
-  },
-
-  cli: ()=>{
-    appendLine('entering full CLI mode...', 'amber');
-    appendLine('type "gui" or "exit" to return.', 'dim');
-    setTimeout(()=> enterCLIMode(), 400);
-  },
-
-  matrix: ()=>{
-    appendLine('entering the matrix... (press any key or ESC to exit)', 'cyan');
-    setTimeout(startMatrix, 300);
-    showPrompt();
-  },
-  cmatrix: function(){ return this.matrix(); },
-
-  sl: async ()=>{
-    const train = [
-"                  (@@) (  ) (@)  ( )  @@    ()    @     O     @     O      @",
-"             (   )",
-"        (@@@@)",
-"     (    )",
-"",
-"   (@@@)",
-"  ====        ________                ___________ ",
-"  _D _|  |_______/        \\__I_I_____===__|_________| ",
-"   |(_)---  |   H\\________/ |   |        =|___ ___|   ",
-"   /     |  |   H  |  |     |   |         ||_| |_||   ",
-"  |      |  |   H  |__--------------------| [___] |   ",
-"  | ________|___H__/__|_____/[][]~\\_______|       |   ",
-"  |/ |   |-----------I_____I [][] []  D   |=======|__ ",
-"_/ =| o |=-O=====O=====O=====O \\ ____Y___________|__ ",
-" |/-=|___|=    ||    ||    ||    |_____/~\\___/        ",
-"  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            ",
-    ];
-    for (let shift = 60; shift > -40; shift -= 4){
-      // print snapshot
-      train.forEach(l => {
-        const padded = ' '.repeat(Math.max(0,shift)) + l;
-        appendLine(padded.slice(0,80));
-      });
-      await sleep(80);
-      // delete that block
-      for (let i=0; i<train.length; i++) contentEl.lastChild.remove();
-    }
-    appendLine('woo woo!', 'amber');
-    showPrompt();
-  },
-
-  cowsay: (arg)=>{
-    const msg = arg || 'moo';
-    const w = msg.length;
-    const top = ' ' + '_'.repeat(w+2);
-    const mid = '< ' + msg + ' >';
-    const bot = ' ' + '-'.repeat(w+2);
-    appendLine(top);
-    appendLine(mid);
-    appendLine(bot);
-    appendLine('        \\   ^__^');
-    appendLine('         \\  (oo)\\_______');
-    appendLine('            (__)\\       )\\/\\');
-    appendLine('                ||----w |');
-    appendLine('                ||     ||');
-    showPrompt();
-  },
-
-  snake: ()=>{
-    appendLine('snake.exe: not implemented yet — but on the roadmap.', 'amber');
-    appendLine('(try matrix or sl instead while i write it)', 'dim');
-    showPrompt();
-  },
-
-  fortune: ()=>{
-    const fortunes = [
-      'There is no place like 127.0.0.1.',
-      'rm -rf / is not a haiku, but it feels like one.',
-      'Real programmers count from 0. Real lovers count from -1.',
-      'A clean kitchen is the sign of a broken dishwasher.',
-      'It works on my machine — ship it.',
-      '99 little bugs in the code, 99 little bugs / take one down, patch it around / 117 little bugs in the code.',
-      'Premature optimization is the root of all evil. Late optimization is also the root of all evil.',
-      'The cloud is just someone else\'s computer.',
-      'There are 10 kinds of people: those who get binary and those who don\'t.',
-    ];
-    appendLine(fortunes[Math.floor(Math.random()*fortunes.length)], 'cyan');
-    showPrompt();
-  },
-
-  sudo: (arg)=>{
-    appendLine('[sudo] password for guest: ', 'dim');
-    setTimeout(()=> {
-      appendLine('Sorry, user guest is not in the sudoers file.', 'red');
-      appendLine('This incident will be reported. (it will not.)', 'dim');
-      showPrompt();
-    }, 600);
-  },
-
-  'rm': async (arg, full)=>{
-    if (full.includes('-rf') && (full.includes('/') || full.includes('*'))){
-      appendLine('rm: it is dangerous to operate recursively on `/`', 'red');
-      await sleep(500);
-      appendLine('rm: use --no-preserve-root to override this failsafe.', 'red');
-      await sleep(500);
-      appendLine('(nice try.)', 'dim');
-    } else {
-      appendLine('rm: '+(arg||'')+': permission denied', 'red');
-    }
-    showPrompt();
-  },
-
-  date: ()=>{
-    appendLine(new Date().toString());
-    showPrompt();
-  },
-
-  echo: (arg, full)=>{
-    const idx = full.indexOf(' ');
-    appendLine(idx >= 0 ? full.slice(idx+1) : '');
-    showPrompt();
-  },
-
-  exit: ()=>{
-    appendLine('logout', 'dim');
-    setTimeout(()=> powerOff(), 400);
-  },
-  'gui': function(){ return this.exit(); },
-};
-
-/* command dispatcher */
-function handleCommand(raw){
-  if (!raw){ showPrompt(); return; }
-  const parts = raw.split(/\s+/);
-  const cmd = parts[0];
-  const arg = parts.slice(1).join(' ');
-  // special: rm with multi-args
-  if (cmd === 'rm'){ return commands.rm(arg, raw); }
-  if (cmd === 'echo'){ return commands.echo(arg, raw); }
-  if (commands[cmd]) return commands[cmd](arg, raw);
-  // unknown
-  appendLine('phosh: command not found: '+cmd, 'red');
-  appendLine('try "help" for a list.', 'dim');
-  showPrompt();
-}
-
-/* =============================================================
-   CLI FULLSCREEN MODE — same shell, takes over the page
-   ============================================================= */
-const cliEl = document.getElementById('cli-content');
-let cliInput = null;
-let cliHistory = [];
-let cliHistIdx = 0;
-let inCLI = false;
-
-function enterCLIMode(){
-  inCLI = true;
-  document.body.classList.add('cli-mode');
-  cliEl.innerHTML = '';
-  cliAppend('Phosphor CLI 1.0 — full screen mode', 'amber');
-  cliAppend('the rest of the page is now hidden. type "gui" or "exit" to return.', 'dim');
-  cliAppend('all the same commands work here.', 'dim');
-  cliAppend('');
-  cliShowPrompt();
-}
-function exitCLIMode(){
-  inCLI = false;
-  document.body.classList.remove('cli-mode');
-  if (currentInput) currentInput.focus();
-}
-function cliAppend(text, cls){
-  const d = document.createElement('div');
-  d.className = 'term-line' + (cls ? ' '+cls : '');
-  d.textContent = text;
-  cliEl.appendChild(d);
-  cliEl.scrollTop = cliEl.scrollHeight;
-}
-function cliAppendHTML(html, cls){
-  const d = document.createElement('div');
-  d.className = 'term-line' + (cls ? ' '+cls : '');
-  d.innerHTML = html;
-  cliEl.appendChild(d);
-  cliEl.scrollTop = cliEl.scrollHeight;
-}
-function cliShowPrompt(){
+  if (S.isLocked) return; // post-root lock — no more input
   const line = document.createElement('div');
   line.className = 'term-input-line';
-  line.innerHTML = '<span class="term-prompt">'+buildPromptHTML()+'</span>';
+  // password prompts may not show a normal prompt — show whatever was last appended.
+  // We still need an input for password awaiting state.
+  if (S.awaitingInput && S.awaitingInput.type === 'password'){
+    // No prefix prompt, just the input
+    line.innerHTML = '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>';
+  } else {
+    line.innerHTML = '<span class="term-prompt">'+getPromptHTML()+'</span>';
+  }
   const inp = document.createElement('input');
-  inp.className = 'term-input';
+  inp.className = 'term-input' + (S.awaitingInput && S.awaitingInput.type === 'password' ? ' password' : '');
   inp.setAttribute('spellcheck','false');
   inp.setAttribute('autocomplete','off');
+  inp.setAttribute('autocapitalize','off');
   const cur = document.createElement('span');
   cur.className = 'term-cursor';
   line.appendChild(inp);
   line.appendChild(cur);
-  cliEl.appendChild(line);
-  cliInput = inp;
+  activeContent.appendChild(line);
   inp.focus();
-  inp.addEventListener('keydown', onCLIKey);
+  currentInput = inp;
+  inp.addEventListener('keydown', onKey);
+  activeContent.scrollTop = activeContent.scrollHeight;
 }
-function cliFreezePrompt(val){
-  if (!cliInput) return;
-  const line = cliInput.parentElement;
-  line.innerHTML = '<span class="term-prompt">'+buildPromptHTML()+'</span>'+
-                   '<span style="color:var(--green)">'+escapeHTML(val)+'</span>';
-  cliInput = null;
+function freezePrompt(val, masked){
+  if (!currentInput) return;
+  const line = currentInput.parentElement;
+  const display = masked ? '' : escapeHTML(val); // classic UNIX: nothing shown for password
+  const promptHTML = masked
+    ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
+    : '<span class="term-prompt">'+getPromptHTML()+'</span>';
+  line.innerHTML = promptHTML + '<span style="color:var(--green)">'+display+'</span>';
+  currentInput = null;
 }
-function onCLIKey(e){
+
+contentEl.addEventListener('click', () => { if (currentInput) currentInput.focus(); });
+
+/* ── KEYBOARD ── */
+function onKey(e){
+  if (S.isLocked) { e.preventDefault(); return; }
   if (e.key === 'Enter'){
-    const val = cliInput.value;
-    cliFreezePrompt(val);
-    if (val.trim()) { cliHistory.push(val); cliHistIdx = cliHistory.length; }
-    handleCLICommand(val.trim());
+    e.preventDefault();
+    const val = currentInput.value;
+    const wasAwaiting = S.awaitingInput;
+    const masked = !!(wasAwaiting && wasAwaiting.type === 'password');
+    freezePrompt(val, masked);
+    S.awaitingInput = null; // clear before cb to avoid leaking password mask to next prompt
+    if (wasAwaiting){ wasAwaiting.cb(val); return; }
+    if (val.trim()){ S.history.push(val); S.histIdx = S.history.length; }
+    handleCommand(val);
     return;
   }
   if (e.key === 'ArrowUp'){
     e.preventDefault();
-    if (cliHistory.length === 0) return;
-    cliHistIdx = Math.max(0, cliHistIdx-1);
-    cliInput.value = cliHistory[cliHistIdx] || '';
+    if (!S.history.length) return;
+    S.histIdx = Math.max(0, S.histIdx - 1);
+    currentInput.value = S.history[S.histIdx] || '';
+    return;
   }
   if (e.key === 'ArrowDown'){
     e.preventDefault();
-    cliHistIdx = Math.min(cliHistory.length, cliHistIdx+1);
-    cliInput.value = cliHistory[cliHistIdx] || '';
+    S.histIdx = Math.min(S.history.length, S.histIdx + 1);
+    currentInput.value = S.history[S.histIdx] || '';
+    return;
+  }
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    tabComplete();
+    return;
+  }
+  if ((e.key === 'l' || e.key === 'L') && e.ctrlKey){
+    e.preventDefault();
+    if (S.awaitingInput) return;
+    activeContent.innerHTML = '';
+    showPrompt();
+    return;
+  }
+  if (e.key === 'c' && e.ctrlKey){
+    e.preventDefault();
+    if (S.awaitingInput){
+      // cancel the awaiting prompt
+      S.awaitingInput = null;
+      freezePrompt('^C', false);
+      appendLine('');
+      showPrompt();
+      return;
+    }
+    const v = currentInput.value;
+    freezePrompt(v + '^C', false);
+    showPrompt();
+    return;
   }
 }
 
-document.querySelector('.cli-overlay').addEventListener('click', ()=>{
-  if (cliInput) cliInput.focus();
+function tabComplete(){
+  if (!currentInput || S.awaitingInput) return;
+  const val = currentInput.value;
+  if (!val) return;
+  const parts = val.split(/\s+/);
+  if (parts.length <= 1){
+    // command name completion
+    const matches = Object.keys(CMDS).filter(c => c.startsWith(val));
+    if (matches.length === 1){
+      currentInput.value = matches[0] + ' ';
+    } else if (matches.length > 1){
+      const prefix = commonPrefix(matches);
+      if (prefix.length > val.length) currentInput.value = prefix;
+      else { appendLine(matches.join('  '), 'dim'); echoCurrentLine(); }
+    }
+  } else {
+    // file completion on the last token
+    const partial = parts[parts.length - 1];
+    let dir, base;
+    if (partial.includes('/')){
+      const idx = partial.lastIndexOf('/');
+      dir = resolvePath(partial.slice(0, idx) || '/');
+      base = partial.slice(idx + 1);
+    } else {
+      dir = S.cwd;
+      base = partial;
+    }
+    const node = FS[dir];
+    if (!node || node.type !== 'd') return;
+    const matches = (node.children || []).filter(c => c.startsWith(base));
+    if (matches.length === 1){
+      const childPath = (dir === '/' ? '' : dir) + '/' + matches[0];
+      const childNode = FS[childPath];
+      const tail = childNode && childNode.type === 'd' ? '/' : ' ';
+      const replaced = partial.slice(0, partial.length - base.length) + matches[0] + tail;
+      parts[parts.length - 1] = replaced;
+      currentInput.value = parts.join(' ');
+    } else if (matches.length > 1){
+      const prefix = commonPrefix(matches);
+      if (prefix.length > base.length){
+        const replaced = partial.slice(0, partial.length - base.length) + prefix;
+        parts[parts.length - 1] = replaced;
+        currentInput.value = parts.join(' ');
+      } else {
+        appendLine(matches.join('  '), 'dim');
+        echoCurrentLine();
+      }
+    }
+  }
+}
+function commonPrefix(arr){
+  if (!arr.length) return '';
+  let p = arr[0];
+  for (const s of arr){
+    while (!s.startsWith(p)) p = p.slice(0, -1);
+  }
+  return p;
+}
+function echoCurrentLine(){
+  // re-render current prompt below to keep typing context after a list dump
+  if (!currentInput) return;
+  const val = currentInput.value;
+  freezePrompt(val, false);
+  showPrompt();
+  if (currentInput) currentInput.value = val;
+}
+
+/* ── PATH RESOLUTION + PERMISSIONS ── */
+function resolvePath(p){
+  if (!p) return S.cwd;
+  if (p === '~') return homeDir(S.user);
+  if (p.startsWith('~/')) p = homeDir(S.user) + p.slice(1);
+  if (!p.startsWith('/')) p = S.cwd + '/' + p;
+  const parts = p.split('/').filter(Boolean);
+  const stack = [];
+  for (const part of parts){
+    if (part === '..') stack.pop();
+    else if (part !== '.') stack.push(part);
+  }
+  return '/' + stack.join('/');
+}
+function getNode(path){ return FS[path === '' ? '/' : path]; }
+function permIndex(node){
+  if (S.isRoot) return null; // root bypasses
+  if (node.owner === S.user) return 1;       // user perms (rwx at 1..3)
+  if (node.group === S.user) return 4;       // group perms (rwx at 4..6) — simplified
+  return 7;                                  // other perms (rwx at 7..9)
+}
+function canRead(node){
+  if (S.isRoot) return true;
+  const i = permIndex(node);
+  return node.perm[i] === 'r';
+}
+function canExec(node){
+  if (S.isRoot) return true;
+  const i = permIndex(node);
+  return node.perm[i + 2] === 'x';
+}
+
+/* ── DISPATCHER ── */
+function handleCommand(raw){
+  const line = (raw || '').trim();
+  if (!line){ showPrompt(); return; }
+
+  // Detect "as" prefix that the password-correct sudo branch uses
+  const tokens = tokenize(line);
+  if (!tokens.length){ showPrompt(); return; }
+
+  let cmd = tokens[0];
+  const args = tokens.slice(1);
+  const argStr = args.join(' ');
+
+  // executable form: ./xinwei.sh
+  if (cmd.startsWith('./')) cmd = cmd.slice(2);
+
+  if (CMDS[cmd]) {
+    try { return CMDS[cmd](argStr, args, line); }
+    catch (err){
+      appendLine('phosh: internal error: ' + err.message, 'red');
+      return showPrompt();
+    }
+  }
+  appendLine('bash: ' + cmd + ': command not found', 'red');
+  showPrompt();
+}
+function tokenize(s){
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(s))) out.push(m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : m[3]));
+  return out;
+}
+
+/* ── COMMANDS ── */
+const CMDS = {};
+
+CMDS.help = () => {
+  const groups = [
+    ['NAVIGATE', ['ls','cd','pwd','find']],
+    ['READ',     ['cat','head','tail','grep','wc','file','less','more']],
+    ['SYSTEM',   ['whoami','id','uname','hostname','uptime','date','env','history','which']],
+    ['PROCESS',  ['ps','top','kill','jobs','free','df']],
+    ['NETWORK',  ['ifconfig','ip','netstat','ping','ssh','curl','wget']],
+    ['WRITE',    ['echo','touch','mkdir','rm','cp','mv','chmod']],
+    ['AUTH',     ['su','sudo','passwd','john','exit','logout']],
+    ['SITE',     ['about','projects','skills','contact','neofetch','open','goto','theme','cli','clear','reboot','shutdown','realboot']],
+    ['FUN',      ['matrix','sl','cowsay','fortune','figlet','snake']],
+  ];
+  appendLine('PHOSPHOR TERMINAL v2 — known commands', 'bright');
+  appendLine('');
+  for (const [g, list] of groups){
+    appendHTML('  <span style="color:var(--amber)">'+g+'</span>  <span style="color:var(--green)">'+list.join('  ')+'</span>');
+  }
+  appendLine('');
+  appendLine('Tip: Tab completes (cmds + paths). Up/Down = history. Ctrl-L = clear. Ctrl-C = cancel.', 'dim');
+  appendLine('Misconfigured boxes have stories. Read /etc/passwd, /etc/sudoers, /etc/motd.', 'dim');
+  showPrompt();
+};
+
+/* ── NAV ── */
+CMDS.ls = (arg, args) => {
+  const flags = args.filter(a => a.startsWith('-')).join('');
+  const targets = args.filter(a => !a.startsWith('-'));
+  const list = targets.length ? targets : [S.cwd];
+  for (const t of list){
+    const path = resolvePath(t);
+    const node = getNode(path);
+    if (!node){ appendLine("ls: cannot access '"+t+"': No such file or directory", 'red'); continue; }
+    if (node.type === 'f'){ appendLine(t); continue; }
+    if (!canRead(node)){ appendLine("ls: cannot open directory '"+t+"': Permission denied", 'red'); continue; }
+    let items = (node.children || []).slice();
+    if (!flags.includes('a')) items = items.filter(c => !c.startsWith('.'));
+    items.sort();
+    if (flags.includes('l')){
+      appendLine('total ' + items.length * 4);
+      if (flags.includes('a')){
+        appendLine('drwxr-xr-x  '+ (node.owner||'?').padEnd(8) +' '+ (node.group||'?').padEnd(8) +'    4096 '+ '.');
+        appendLine('drwxr-xr-x  '+ (node.owner||'?').padEnd(8) +' '+ (node.group||'?').padEnd(8) +'    4096 '+ '..');
+      }
+      for (const name of items){
+        const cp = (path === '/' ? '' : path) + '/' + name;
+        const cn = FS[cp];
+        const perm = cn ? cn.perm : '----------';
+        const own  = cn ? (cn.owner || '?') : '?';
+        const grp  = cn ? (cn.group || '?') : '?';
+        const size = cn && cn.content !== undefined ? String(cn.content).length : (cn && cn.type === 'd' ? 4096 : 0);
+        const color = cn && cn.type === 'd' ? 'var(--cyan)' : (cn && cn.perm && cn.perm.includes('x') ? 'var(--green)' : 'var(--fg-0)');
+        appendHTML(perm + '  ' + own.padEnd(8) + ' ' + grp.padEnd(8) + ' ' + String(size).padStart(6) + ' <span style="color:'+color+'">' + escapeHTML(name) + '</span>');
+      }
+    } else {
+      const colored = items.map(name => {
+        const cp = (path === '/' ? '' : path) + '/' + name;
+        const cn = FS[cp];
+        if (cn && cn.type === 'd') return '<span style="color:var(--cyan)">'+escapeHTML(name)+'/</span>';
+        if (cn && cn.perm && cn.perm.includes('x')) return '<span style="color:var(--green)">'+escapeHTML(name)+'*</span>';
+        if (name.startsWith('.')) return '<span style="color:var(--fg-2)">'+escapeHTML(name)+'</span>';
+        return escapeHTML(name);
+      });
+      appendHTML(colored.join('  '));
+    }
+  }
+  showPrompt();
+};
+
+CMDS.cd = (arg) => {
+  const target = arg || homeDir(S.user);
+  const path = resolvePath(target);
+  const node = getNode(path);
+  if (!node){ appendLine('bash: cd: '+target+': No such file or directory', 'red'); return showPrompt(); }
+  if (node.type !== 'd'){ appendLine('bash: cd: '+target+': Not a directory', 'red'); return showPrompt(); }
+  if (!canExec(node)){ appendLine('bash: cd: '+target+': Permission denied', 'red'); return showPrompt(); }
+  S.cwd = path === '' ? '/' : path;
+  showPrompt();
+};
+
+CMDS.pwd = () => { appendLine(S.cwd); showPrompt(); };
+
+CMDS.find = (arg, args) => {
+  const start = resolvePath(args[0] || '.');
+  const nameIdx = args.indexOf('-name');
+  const pattern = nameIdx >= 0 ? args[nameIdx + 1] : null;
+  const re = pattern ? new RegExp('^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$') : null;
+  const out = [];
+  for (const p of Object.keys(FS)){
+    if (p === start || p.startsWith(start + '/') || (start === '/' && p !== '/')){
+      const name = p.split('/').pop();
+      if (!re || re.test(name)) out.push(p);
+    }
+  }
+  out.sort().forEach(l => appendLine(l));
+  showPrompt();
+};
+
+/* ── READ ── */
+CMDS.cat = (arg, args) => {
+  if (!args.length){ appendLine('cat: missing operand', 'red'); return showPrompt(); }
+  for (const f of args){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node){ appendLine('cat: '+f+': No such file or directory', 'red'); continue; }
+    if (node.type === 'd'){ appendLine('cat: '+f+': Is a directory', 'red'); continue; }
+    if (!canRead(node)){ appendLine('cat: '+f+': Permission denied', 'red'); continue; }
+    const c = typeof node.content === 'function' ? node.content() : node.content;
+    String(c || '').split('\n').forEach(l => appendLine(l));
+  }
+  showPrompt();
+};
+CMDS.less = CMDS.more = CMDS.cat;
+
+CMDS.head = (arg, args) => {
+  let n = 10;
+  const files = [];
+  for (let i = 0; i < args.length; i++){
+    if (args[i] === '-n'){ n = parseInt(args[++i]) || 10; }
+    else if (args[i].startsWith('-n')) { n = parseInt(args[i].slice(2)) || 10; }
+    else files.push(args[i]);
+  }
+  if (!files.length){ appendLine('head: missing operand', 'red'); return showPrompt(); }
+  for (const f of files){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node || !canRead(node)){ appendLine("head: cannot open '"+f+"' for reading", 'red'); continue; }
+    const c = typeof node.content === 'function' ? node.content() : node.content;
+    String(c || '').split('\n').slice(0, n).forEach(l => appendLine(l));
+  }
+  showPrompt();
+};
+CMDS.tail = (arg, args) => {
+  let n = 10;
+  const files = [];
+  for (let i = 0; i < args.length; i++){
+    if (args[i] === '-n'){ n = parseInt(args[++i]) || 10; }
+    else if (args[i].startsWith('-n')) { n = parseInt(args[i].slice(2)) || 10; }
+    else files.push(args[i]);
+  }
+  if (!files.length){ appendLine('tail: missing operand', 'red'); return showPrompt(); }
+  for (const f of files){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node || !canRead(node)){ appendLine("tail: cannot open '"+f+"' for reading", 'red'); continue; }
+    const c = typeof node.content === 'function' ? node.content() : node.content;
+    String(c || '').split('\n').slice(-n).forEach(l => appendLine(l));
+  }
+  showPrompt();
+};
+
+CMDS.grep = (arg, args) => {
+  if (args.length < 2){ appendLine('Usage: grep PATTERN FILE [FILE...]', 'red'); return showPrompt(); }
+  const pattern = args[0];
+  const files = args.slice(1);
+  let re;
+  try { re = new RegExp(pattern, 'i'); }
+  catch (e) { appendLine('grep: invalid pattern: '+pattern, 'red'); return showPrompt(); }
+  for (const f of files){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node || !canRead(node)){ appendLine('grep: '+f+': No such file or directory', 'red'); continue; }
+    const c = typeof node.content === 'function' ? node.content() : node.content;
+    String(c || '').split('\n').forEach(l => {
+      if (re.test(l)){
+        const html = files.length > 1 ? escapeHTML(f) + ':' + escapeHTML(l) : escapeHTML(l);
+        appendHTML('<span style="color:var(--amber)">'+html+'</span>');
+      }
+    });
+  }
+  showPrompt();
+};
+
+CMDS.wc = (arg, args) => {
+  if (!args.length){ appendLine('wc: missing operand', 'red'); return showPrompt(); }
+  for (const f of args){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node || !canRead(node)){ appendLine('wc: '+f+': No such file or directory', 'red'); continue; }
+    const c = typeof node.content === 'function' ? node.content() : node.content || '';
+    const lines = c.split('\n').length;
+    const words = c.trim().split(/\s+/).filter(Boolean).length;
+    const bytes = c.length;
+    appendLine('  '+lines+'  '+words+' '+bytes+' '+f);
+  }
+  showPrompt();
+};
+
+CMDS.file = (arg, args) => {
+  if (!args.length){ appendLine('file: missing operand', 'red'); return showPrompt(); }
+  for (const f of args){
+    const path = resolvePath(f);
+    const node = getNode(path);
+    if (!node){ appendLine(f+': cannot open `'+f+"' (No such file or directory)", 'red'); continue; }
+    if (node.type === 'd') appendLine(f+': directory');
+    else if (node.perm && node.perm.includes('x')) appendLine(f+': ELF 32-bit LSB executable');
+    else appendLine(f+': ASCII text');
+  }
+  showPrompt();
+};
+
+CMDS.which = (arg, args) => {
+  if (!args.length){ appendLine('which: missing operand', 'red'); return showPrompt(); }
+  for (const c of args){
+    if (CMDS[c]){
+      const guesses = ['/bin/'+c,'/usr/bin/'+c,'/sbin/'+c];
+      const found = guesses.find(g => FS[g]) || '/usr/bin/'+c;
+      appendLine(found);
+    } else {
+      appendLine('which: no '+c+' in (/usr/local/bin:/usr/bin:/bin)', 'red');
+    }
+  }
+  showPrompt();
+};
+
+/* ── SYSTEM INFO ── */
+CMDS.whoami = () => { appendLine(S.user); showPrompt(); };
+CMDS.id = () => {
+  if (S.isRoot) appendLine('uid=0(root) gid=0(root) groups=0(root)');
+  else if (S.user === 'maintainer') appendLine('uid=1001(maintainer) gid=1001(maintainer) groups=1001(maintainer),27(sudo)');
+  else appendLine('uid=1000(guest) gid=1000(guest) groups=1000(guest)');
+  showPrompt();
+};
+CMDS.hostname = () => { appendLine('phosphor'); showPrompt(); };
+CMDS.uname = (arg, args) => {
+  const flag = args[0] || '';
+  if (flag === '-a') appendLine('Linux phosphor 2.4.18-phosphor #1 Mon Jan 1 00:00:00 UTC 2001 i686 GNU/Linux');
+  else if (flag === '-r') appendLine('2.4.18-phosphor');
+  else if (flag === '-n') appendLine('phosphor');
+  else if (flag === '-m') appendLine('i686');
+  else appendLine('Linux');
+  showPrompt();
+};
+CMDS.uptime = () => {
+  const u = Math.floor((Date.now() - startTime) / 1000);
+  const h = Math.floor(u/3600), m = Math.floor((u%3600)/60);
+  const t = new Date().toTimeString().slice(0,8);
+  const l1 = (0.2 + Math.random()*0.5).toFixed(2);
+  const l2 = (0.1 + Math.random()*0.4).toFixed(2);
+  const l3 = (0.1 + Math.random()*0.3).toFixed(2);
+  appendLine(' '+t+' up '+h+':'+pad(m)+', 1 user, load average: '+l1+', '+l2+', '+l3);
+  showPrompt();
+};
+CMDS.date = () => { appendLine(new Date().toString()); showPrompt(); };
+CMDS.env = () => {
+  appendLine('USER='+S.user);
+  appendLine('HOME='+homeDir(S.user));
+  appendLine('SHELL=/bin/bash');
+  appendLine('PATH=/usr/local/bin:/usr/bin:/bin:/sbin');
+  appendLine('TERM=phosphor-term');
+  appendLine('LANG=en_US.UTF-8');
+  appendLine('PWD='+S.cwd);
+  for (const k of Object.keys(S.envOverrides)) appendLine(k+'='+S.envOverrides[k]);
+  showPrompt();
+};
+CMDS.history = () => {
+  S.history.forEach((h, i) => appendLine('  '+String(i+1).padStart(4)+'  '+h));
+  showPrompt();
+};
+
+/* ── PROCESS / RESOURCES ── */
+CMDS.ps = (arg, args) => {
+  const flags = args.join(' ');
+  if (flags.includes('a') || flags.includes('e') || flags.includes('-A') || flags.includes('aux')){
+    appendHTML('<span style="color:var(--amber)">  PID USER       %CPU %MEM TTY      STAT  COMMAND</span>');
+    for (const p of PROCS){
+      appendLine(String(p.pid).padStart(5)+' '+p.user.padEnd(10)+' '+p.cpu.padStart(4)+' '+p.mem.padStart(4)+' '+p.tty.padEnd(8)+' '+p.stat.padEnd(5)+' '+p.cmd);
+    }
+  } else {
+    appendHTML('<span style="color:var(--amber)">  PID TTY          TIME CMD</span>');
+    const own = PROCS.filter(p => p.user === S.user || S.isRoot);
+    for (const p of own.slice(0, 5)){
+      appendLine(String(p.pid).padStart(5)+' '+p.tty.padEnd(8)+'    00:00:01 '+p.cmd.split(' ')[0]);
+    }
+  }
+  showPrompt();
+};
+CMDS.top = () => {
+  appendLine('top - '+new Date().toTimeString().slice(0,8)+' up '+Math.floor((Date.now()-startTime)/60000)+' min, 1 user', 'bright');
+  appendLine('Tasks: '+PROCS.length+' total, 1 running, '+(PROCS.length-1)+' sleeping');
+  appendLine('%Cpu(s):  2.1 us,  0.5 sy,  0.0 ni, 97.4 id');
+  appendLine('MiB Mem :     16.0 total,      4.0 free,      8.0 used,      4.0 buff/cache');
+  appendLine('');
+  CMDS.ps('aux', ['aux']);
+};
+CMDS.kill = (arg, args) => {
+  if (!args.length){ appendLine('kill: usage: kill [-s sigspec | -n signum | -sigspec] pid', 'red'); return showPrompt(); }
+  const pidArg = args.find(a => !a.startsWith('-'));
+  const pid = parseInt(pidArg);
+  const proc = PROCS.find(p => p.pid === pid);
+  if (!proc){ appendLine('bash: kill: ('+pid+') - No such process', 'red'); }
+  else if (!S.isRoot && proc.user !== S.user){ appendLine('bash: kill: ('+pid+') - Operation not permitted', 'red'); }
+  else { /* silent success, like real kill */ }
+  showPrompt();
+};
+CMDS.free = () => {
+  appendLine('              total        used        free      shared  buff/cache   available');
+  appendLine('Mem:          16384        8192        4096         256        4096        8192');
+  appendLine('Swap:          4096         128        3968');
+  showPrompt();
+};
+CMDS.df = (arg, args) => {
+  const human = args.includes('-h');
+  appendLine('Filesystem     '+(human?'  Size  Used Avail Use% Mounted on':'1K-blocks    Used Available Use% Mounted on'));
+  if (human){
+    appendLine('/dev/sda1         20G  8.0G   12G  40% /');
+    appendLine('tmpfs            800M     0  800M   0% /tmp');
+    appendLine('/dev/sda2         10G  4.0G  6.0G  40% /home');
+  } else {
+    appendLine('/dev/sda1       20971520 8388608  12582912  40% /');
+    appendLine('tmpfs             819200       0    819200   0% /tmp');
+    appendLine('/dev/sda2       10485760 4194304   6291456  40% /home');
+  }
+  showPrompt();
+};
+
+/* ── NETWORK ── */
+CMDS.ifconfig = () => { IFCONFIG_OUT.split('\n').forEach(l => appendLine(l)); showPrompt(); };
+CMDS.ip = (arg, args) => {
+  if (args[0] === 'addr' || args[0] === 'a'){ CMDS.ifconfig(); return; }
+  if (args[0] === 'route' || args[0] === 'r'){
+    appendLine('default via 10.0.0.1 dev eth0');
+    appendLine('10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.42');
+    return showPrompt();
+  }
+  appendLine('Usage: ip { addr | route } ...', 'red'); showPrompt();
+};
+CMDS.netstat = (arg, args) => {
+  appendHTML('<span style="color:var(--amber)">Proto Local Address          Foreign Address        State        PID/Program</span>');
+  for (const n of NETSTAT){
+    appendLine(n.proto.padEnd(5)+' '+n.local.padEnd(22)+' '+n.remote.padEnd(22)+' '+n.state.padEnd(12)+' '+n.pid);
+  }
+  showPrompt();
+};
+CMDS.ping = async (arg, args) => {
+  if (!args.length){ appendLine('ping: usage: ping destination', 'red'); return showPrompt(); }
+  const dest = args[args.length - 1];
+  const ip = '10.0.0.'+Math.floor(Math.random()*255);
+  appendLine('PING '+dest+' ('+ip+') 56(84) bytes of data.');
+  for (let i = 0; i < 4; i++){
+    await sleep(280);
+    const ms = (1 + Math.random()*20).toFixed(1);
+    appendLine('64 bytes from '+dest+' ('+ip+'): icmp_seq='+(i+1)+' ttl=64 time='+ms+' ms');
+  }
+  appendLine('');
+  appendLine('--- '+dest+' ping statistics ---');
+  appendLine('4 packets transmitted, 4 received, 0% packet loss, time 1234ms');
+  showPrompt();
+};
+CMDS.curl = (arg, args) => {
+  if (!args.length){ appendLine('curl: try \'curl --help\' for more information', 'red'); return showPrompt(); }
+  appendLine('curl: ('+(Math.random()<0.5?6:7)+') Could not resolve host: '+args[0], 'red');
+  showPrompt();
+};
+CMDS.wget = (arg, args) => {
+  if (!args.length){ appendLine('wget: missing URL', 'red'); return showPrompt(); }
+  appendLine('--'+new Date().toTimeString().slice(0,8)+'--  '+args[0]);
+  appendLine('Resolving '+args[0].replace(/^https?:\/\//,'').split('/')[0]+'... failed: Name or service not known.', 'red');
+  showPrompt();
+};
+
+/* ── WRITE OPS ── */
+CMDS.echo = (arg, args, raw) => {
+  const idx = raw.indexOf(' ');
+  appendLine(idx >= 0 ? raw.slice(idx + 1) : '');
+  showPrompt();
+};
+CMDS.touch = (arg, args) => {
+  if (!args.length){ appendLine('touch: missing operand', 'red'); return showPrompt(); }
+  for (const f of args){
+    const path = resolvePath(f);
+    if (!FS[path]) FS[path] = { type:'f', perm:'-rw-r--r--', owner:S.user, group:S.user, content:'' };
+  }
+  showPrompt();
+};
+CMDS.mkdir = (arg, args) => {
+  if (!args.length){ appendLine('mkdir: missing operand', 'red'); return showPrompt(); }
+  for (const d of args){
+    const path = resolvePath(d);
+    if (FS[path]) appendLine("mkdir: cannot create directory '"+d+"': File exists", 'red');
+    else FS[path] = { type:'d', perm:'drwxr-xr-x', owner:S.user, group:S.user, children:[] };
+  }
+  showPrompt();
+};
+CMDS.rm = (arg, args, raw) => {
+  if (raw.includes('-rf') && (raw.includes(' /') || raw.includes(' *'))){
+    appendLine("rm: it is dangerous to operate recursively on '/'", 'red');
+    appendLine('rm: use --no-preserve-root to override this failsafe.', 'red');
+    appendLine('(nice try.)', 'dim');
+    return showPrompt();
+  }
+  if (!args.length){ appendLine('rm: missing operand', 'red'); return showPrompt(); }
+  for (const f of args){
+    if (f.startsWith('-')) continue;
+    appendLine("rm: cannot remove '"+f+"': Permission denied", 'red');
+  }
+  showPrompt();
+};
+CMDS.cp = (arg, args) => {
+  if (args.length < 2){ appendLine('cp: missing destination file operand', 'red'); return showPrompt(); }
+  appendLine("cp: cannot create regular file '"+args[args.length-1]+"': Permission denied", 'red');
+  showPrompt();
+};
+CMDS.mv = (arg, args) => {
+  if (args.length < 2){ appendLine('mv: missing destination file operand', 'red'); return showPrompt(); }
+  appendLine("mv: cannot move '"+args[0]+"' to '"+args[args.length-1]+"': Permission denied", 'red');
+  showPrompt();
+};
+CMDS.chmod = (arg, args) => {
+  if (args.length < 2){ appendLine('chmod: missing operand', 'red'); return showPrompt(); }
+  if (!S.isRoot){ appendLine('chmod: changing permissions of '+args[args.length-1]+': Operation not permitted', 'red'); }
+  else appendLine('');
+  showPrompt();
+};
+
+/* ── FUN ── */
+CMDS.cowsay = (arg, args, raw) => {
+  const idx = raw.indexOf(' ');
+  const msg = idx >= 0 ? raw.slice(idx + 1) : 'moo';
+  appendLine(' ' + '_'.repeat(msg.length + 2));
+  appendLine('< ' + msg + ' >');
+  appendLine(' ' + '-'.repeat(msg.length + 2));
+  appendLine('        \\   ^__^');
+  appendLine('         \\  (oo)\\_______');
+  appendLine('            (__)\\       )\\/\\');
+  appendLine('                ||----w |');
+  appendLine('                ||     ||');
+  showPrompt();
+};
+CMDS.fortune = () => {
+  const f = [
+    'There is no place like 127.0.0.1.',
+    'It works on my machine — ship it.',
+    'The cloud is just someone else\'s computer.',
+    '99 little bugs in the code... patch one... 117 little bugs.',
+    'Premature optimization is the root of all evil. Late optimization too.',
+    'A SQL query walks into a bar, sees two tables, asks "Can I JOIN you?"',
+    'Why do programmers prefer dark mode? Because light attracts bugs.',
+    'There are 10 kinds of people: those who get binary and those who don\'t.',
+    'Real programmers count from 0. Real lovers count from -1.',
+  ];
+  appendLine(f[Math.floor(Math.random()*f.length)], 'cyan');
+  showPrompt();
+};
+CMDS.figlet = (arg, args, raw) => {
+  const idx = raw.indexOf(' ');
+  const msg = (idx >= 0 ? raw.slice(idx + 1) : 'NCC').toUpperCase();
+  appendHTML('<span style="color:var(--green)">  '+escapeHTML(msg.split('').join(' '))+'</span>');
+  appendLine('  '+'='.repeat(msg.length * 2 + 1), 'dim');
+  appendLine('  (real figlet not installed — install package `figlet`)', 'dim');
+  showPrompt();
+};
+CMDS.snake = () => {
+  appendLine('snake: not implemented yet (try matrix or sl)', 'amber');
+  showPrompt();
+};
+CMDS.sl = async () => {
+  const train = [
+    '      ====        ________                ___________',
+    '  _D _|  |_______/        \\__I_I_____===__|_________|',
+    '   |(_)---  |   H\\________/ |   |        =|___ ___|',
+    '   /     |  |   H  |  |     |   |         ||_| |_||',
+    '  |      |  |   H  |__--------------------| [___] |',
+    '  | ________|___H__/__|_____/[][]~\\_______|       |',
+    '  |/ |   |-----------I_____I [][] []  D   |=======|__',
+  ];
+  for (let shift = 50; shift > -60; shift -= 5){
+    for (const l of train) appendLine(' '.repeat(Math.max(0, shift)) + l);
+    await sleep(70);
+    for (let i = 0; i < train.length; i++) activeContent.lastChild.remove();
+  }
+  appendLine('woo woo!', 'amber');
+  showPrompt();
+};
+
+/* =============================================================
+   AUTH + ESCALATION
+   PATH A: john /etc/passwd  -> DES-cracks 4-digit root pw
+   PATH B: su maintainer (empty pw) -> sudo su (NOPASSWD)
+   ============================================================= */
+
+/* ── PASSWORDS ── */
+const ROOT_PASSWORD = '1234';        // 4-digit, what john "cracks"
+const GUEST_PASSWORD = 'guest';      // for completeness
+const KNOWN_PASSWORDS = { root: ROOT_PASSWORD, guest: GUEST_PASSWORD, maintainer: '' /* empty */ };
+
+/* ── PASSWD ── */
+CMDS.passwd = () => {
+  appendLine('Changing password for '+S.user+'.', 'dim');
+  appendLine('passwd: Authentication token manipulation error', 'red');
+  appendLine('passwd: password unchanged', 'red');
+  showPrompt();
+};
+
+/* ── SU ──
+   guest -> root: needs root password (4-digit, crackable with john)
+   guest -> maintainer: empty password — no prompt at all (real misconfig)
+   anyone -> any: standard
+*/
+CMDS.su = (arg, args) => {
+  const target = (args.find(a => !a.startsWith('-')) || 'root');
+  if (S.isRoot && target === 'root'){ appendLine('You are already root.', 'amber'); return showPrompt(); }
+  if (target === S.user){ appendLine('su: already running as '+target, 'amber'); return showPrompt(); }
+
+  // Check user exists
+  if (!(target in KNOWN_PASSWORDS)){ appendLine("su: user "+target+" does not exist", 'red'); return showPrompt(); }
+
+  // Misconfig path: empty-password account = no prompt at all
+  if (KNOWN_PASSWORDS[target] === ''){
+    switchUser(target);
+    showPrompt();
+    return;
+  }
+
+  // Otherwise, prompt for password
+  appendLine('Password: ');
+  S.awaitingInput = { type:'password', cb:(pw) => {
+    if (pw === KNOWN_PASSWORDS[target]){
+      switchUser(target);
+      if (target === 'root') grantRoot('su');
+      else showPrompt();
+    } else {
+      appendLine('su: Authentication failure', 'red');
+      showPrompt();
+    }
+  }};
+  showPrompt();
+};
+
+function switchUser(target){
+  S.user = target;
+  S.cwd = homeDir(target);
+  S.history = []; S.histIdx = 0;
+}
+
+/* ── SUDO ──
+   - If S.user has NOPASSWD entry in sudoers, run without prompt.
+   - 'sudo su' / 'sudo -i' / 'sudo bash' -> root shell
+   - Otherwise prompt for the *current user's* password.
+*/
+function userIsNopasswdSudo(u){
+  // Parse /etc/sudoers — simplified: look for "<user> ... NOPASSWD"
+  const sudoers = FS['/etc/sudoers'].content;
+  const re = new RegExp('^'+u+'\\s.*NOPASSWD', 'm');
+  return re.test(sudoers);
+}
+
+CMDS.sudo = (arg, args, raw) => {
+  if (S.isRoot){
+    // already root: just run the inner command
+    const inner = raw.replace(/^sudo\s+/, '');
+    if (!inner.trim()) return showPrompt();
+    return handleCommand(inner);
+  }
+  if (!args.length){ appendLine('usage: sudo command', 'red'); return showPrompt(); }
+
+  const innerCmd = args[0];
+  const isShell = innerCmd === 'su' || innerCmd === '-i' || innerCmd === 'bash' || innerCmd === '-s';
+
+  const runAsRoot = () => {
+    if (isShell){
+      switchUser('root');
+      grantRoot('sudo');
+    } else {
+      // exec one command as root, then restore
+      const wasRoot = S.isRoot, wasUser = S.user, wasCwd = S.cwd;
+      S.isRoot = true; S.user = 'root';
+      const inner = raw.replace(/^sudo\s+/, '');
+      // Re-dispatch synchronously; the inner command will showPrompt itself
+      const tokens = tokenize(inner);
+      const cmd = tokens[0];
+      if (CMDS[cmd]){
+        // Wrap showPrompt to restore state when called
+        const origShow = showPrompt;
+        let restored = false;
+        showPrompt = function(){
+          if (!restored){ S.isRoot = wasRoot; S.user = wasUser; S.cwd = wasCwd; restored = true; }
+          showPrompt = origShow;
+          origShow();
+        };
+        try { handleCommand(inner); }
+        finally { /* restore handled by wrapped showPrompt */ }
+      } else {
+        appendLine('sudo: '+cmd+': command not found', 'red');
+        S.isRoot = wasRoot; S.user = wasUser;
+        showPrompt();
+      }
+    }
+  };
+
+  if (userIsNopasswdSudo(S.user)){
+    runAsRoot();
+    return;
+  }
+  // Need password (current user's password)
+  appendLine('[sudo] password for '+S.user+': ');
+  S.awaitingInput = { type:'password', cb:(pw) => {
+    const expected = KNOWN_PASSWORDS[S.user];
+    if (expected !== undefined && pw === expected && expected !== ''){
+      runAsRoot();
+    } else {
+      appendLine('Sorry, try again.', 'red');
+      appendLine('sudo: 1 incorrect password attempt', 'red');
+      showPrompt();
+    }
+  }};
+  showPrompt();
+};
+
+/* ── JOHN THE RIPPER (fake) ── */
+CMDS.john = async (arg, args) => {
+  if (!args.length){
+    appendLine('John the Ripper 1.8.0 (Phosphor Linux build)', 'bright');
+    appendLine('Usage: john [OPTIONS] [PASSWORD-FILES]');
+    appendLine('  --show         show cracked passwords');
+    appendLine('  --wordlist=F   use a wordlist (not used here — incremental mode)');
+    return showPrompt();
+  }
+
+  const showMode = args.includes('--show');
+  const file = args.find(a => !a.startsWith('-'));
+  if (!file){ appendLine('john: no password files specified', 'red'); return showPrompt(); }
+
+  const path = resolvePath(file);
+  const node = getNode(path);
+  if (!node){ appendLine("john: open: '"+file+"': No such file or directory", 'red'); return showPrompt(); }
+  if (!canRead(node)){ appendLine("john: open: '"+file+"': Permission denied", 'red'); return showPrompt(); }
+
+  if (showMode){
+    appendLine('root:'+ROOT_PASSWORD+':0:0:root:/root:/bin/bash');
+    appendLine('');
+    appendLine('1 password hash cracked, 1 left');
+    return showPrompt();
+  }
+
+  appendLine('Loaded 2 password hashes with 2 different salts (descrypt, traditional crypt(3) [DES 32/64])', 'bright');
+  appendLine('Will run 1 OpenMP thread');
+  appendLine('Press \'q\' or Ctrl-C to abort, almost any other key for status');
+  appendLine('');
+
+  // Animated brute force
+  const tries = [
+    { v:'0000', wait:200 },
+    { v:'0100', wait:180 },
+    { v:'0500', wait:180 },
+    { v:'0999', wait:180 },
+    { v:'1000', wait:180 },
+    { v:'1111', wait:180 },
+    { v:'1233', wait:200 },
+  ];
+  for (const t of tries){
+    if (S.isLocked) return;
+    const div = appendLine('Trying: '+t.v, 'dim');
+    await sleep(t.wait);
+  }
+  await sleep(220);
+  appendHTML('<span style="color:var(--green)">'+ROOT_PASSWORD+'             (root)</span>');
+  await sleep(150);
+  appendLine('1g 0:00:00:03 100% 1/2 (ETA: now)  0.3267g/s 1633p/s 1633c/s 1633C/s 1234..1234');
+  appendLine('Use the "--show" option to display all of the cracked passwords reliably');
+  appendLine('Session completed', 'bright');
+  appendLine('');
+  appendLine('# now try: su -   (password: '+ROOT_PASSWORD+')', 'amber');
+  showPrompt();
+};
+
+/* ── EXIT / LOGOUT ── */
+CMDS.exit = CMDS.logout = () => {
+  if (document.body.classList.contains('cli-mode')){
+    exitCLIMode();
+    return;
+  }
+  appendLine('logout', 'dim');
+  setTimeout(powerOff, 400);
+};
+
+/* =============================================================
+   GRANT ROOT — red prompt, lock terminal, celebration
+   ============================================================= */
+function grantRoot(method){
+  S.isRoot = true;
+  S.user = 'root';
+  S.cwd = '/root';
+  document.body.classList.add('is-root');
+
+  // Update status bar to reflect root
+  const sbHost = document.getElementById('sb-host');
+  if (sbHost) sbHost.textContent = 'root@phosphor';
+
+  appendLine('');
+  appendHTML('<span style="color:#ffd86b;text-shadow:0 0 6px #ffd86b">[+] uid=0(root) gid=0(root) — escalation via '+escapeHTML(method)+'</span>');
+  appendLine('');
+
+  // Lock terminal: no more input from now on.
+  S.isLocked = true;
+  document.body.classList.add('terminal-locked');
+  if (currentInput){
+    currentInput.classList.add('locked');
+    currentInput.blur();
+    currentInput.disabled = true;
+  }
+
+  // Show a frozen root prompt at the bottom for visual effect
+  setTimeout(() => {
+    const line = document.createElement('div');
+    line.className = 'term-input-line';
+    line.innerHTML = '<span class="term-prompt">'+getPromptHTML()+'</span><span class="term-cursor"></span>';
+    activeContent.appendChild(line);
+    activeContent.scrollTop = activeContent.scrollHeight;
+  }, 200);
+
+  // Celebration overlay
+  setTimeout(() => showCelebration(), 600);
+}
+
+function showCelebration(){
+  rootOverlay.classList.add('active');
+  rootOverlay.setAttribute('aria-hidden', 'false');
+  launchFireworks();
+}
+function hideRootOverlay(){
+  rootOverlay.classList.remove('active');
+  rootOverlay.setAttribute('aria-hidden', 'true');
+  if (fwRaf){ cancelAnimationFrame(fwRaf); fwRaf = null; }
+  const ctx = fwCanvas.getContext('2d');
+  ctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+}
+
+/* ── FIREWORKS CANVAS ── */
+let fwRaf = null;
+let fwParticles = [];
+let fwLastBurst = 0;
+function launchFireworks(){
+  fwCanvas.width = window.innerWidth;
+  fwCanvas.height = window.innerHeight;
+  fwParticles = [];
+  fwLastBurst = 0;
+  const ctx = fwCanvas.getContext('2d');
+  ctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+  fwRaf = requestAnimationFrame(drawFireworks);
+}
+function spawnBurst(){
+  const colors = ['#ffd86b','#ffb454','#ff6cb8','#4af07a','#6cd1ff','#fff2b0'];
+  const cx = fwCanvas.width  * (0.15 + Math.random()*0.7);
+  const cy = fwCanvas.height * (0.15 + Math.random()*0.5);
+  const N = 50;
+  const color = colors[Math.floor(Math.random()*colors.length)];
+  for (let i = 0; i < N; i++){
+    const angle = (Math.PI*2/N)*i + Math.random()*0.1;
+    const speed = 2 + Math.random()*4.5;
+    fwParticles.push({
+      x:cx, y:cy,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      life: 1,
+      decay: 0.012 + Math.random()*0.012,
+      color, size: 1.6 + Math.random()*1.8,
+    });
+  }
+}
+function drawFireworks(){
+  const ctx = fwCanvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+
+  const now = Date.now();
+  if (now - fwLastBurst > 480){ spawnBurst(); fwLastBurst = now; }
+
+  for (const p of fwParticles){
+    p.life -= p.decay;
+    if (p.life <= 0) continue;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05; // gravity
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  fwParticles = fwParticles.filter(p => p.life > 0);
+
+  fwRaf = requestAnimationFrame(drawFireworks);
+}
+window.addEventListener('resize', () => {
+  if (rootOverlay.classList.contains('active')){
+    fwCanvas.width  = window.innerWidth;
+    fwCanvas.height = window.innerHeight;
+  }
 });
 
-/* CLI command handler — proxies to same commands but writes to cliEl */
-function handleCLICommand(raw){
-  if (!raw){ cliShowPrompt(); return; }
-  // re-route appendLine/HTML & showPrompt temporarily
-  const _append = window.appendLine;
-  const _appendHTML = window.appendHTML;
-  const _showPrompt = window.showPrompt;
-  // We swap the symbols used inside command functions
-  // Easier: re-implement the dispatcher inline with CLI helpers
-  const parts = raw.split(/\s+/);
-  const cmd = parts[0];
-  const arg = parts.slice(1).join(' ');
+/* ── ROOT-ONLY EASTER EGG COMMANDS ── */
+CMDS.flag = () => {
+  if (!S.isRoot){ appendLine('bash: flag: command not found', 'red'); return showPrompt(); }
+  appendLine('FLAG{ph0sph0r_l1nux_pwn3d_b4_l3g4cy_des}', 'amber');
+  showPrompt();
+};
+CMDS.secret = () => {
+  if (!S.isRoot){ appendLine('bash: secret: command not found', 'red'); return showPrompt(); }
+  appendLine('You found the easter egg. The terminal was 100% client-side JS. — NCC', 'amber');
+  showPrompt();
+};
+CMDS['xinwei.sh'] = () => {
+  if (!S.isRoot){ appendLine('bash: ./xinwei.sh: Permission denied', 'red'); return showPrompt(); }
+  const lines = [
+    '  ██╗  ██╗██╗██████╗ ██╗ █████╗ ███╗   ██╗',
+    '  ╚██╗██╔╝██║██╔══██╗██║██╔══██╗████╗  ██║',
+    '   ╚███╔╝ ██║██║  ██║██║███████║██╔██╗ ██║',
+    '   ██╔██╗ ██║██║  ██║██║██╔══██║██║╚██╗██║',
+    '  ██╔╝ ██╗██║██████╔╝██║██║  ██║██║ ╚████║',
+    '  ╚═╝  ╚═╝╚═╝╚═════╝ ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝',
+  ];
+  for (const l of lines) appendLine(l, 'magenta');
+  appendLine('厚德 求真 砺学 笃行', 'amber');
+  appendLine('西安电子科技大学 · Since 1931', 'amber');
+  showPrompt();
+};
 
-  // Special handling for cli/exit/gui in CLI mode
-  if (cmd === 'cli'){ cliAppend('already in CLI mode.', 'amber'); return cliShowPrompt(); }
-  if (cmd === 'exit' || cmd === 'gui'){ cliAppend('returning to gui...', 'dim'); setTimeout(exitCLIMode, 300); return; }
-
-  // We use a hack: temporarily reassign appendLine/HTML/showPrompt to CLI versions
-  window._origAppendLine = appendLine;
-  window._origAppendHTML = appendHTML;
-  window._origShowPrompt = showPrompt;
-
-  // swap to cli versions
-  appendLine = cliAppend;
-  appendHTML = cliAppendHTML;
-  showPrompt = cliShowPrompt;
-
-  try {
-    if (commands[cmd]){
-      commands[cmd](arg, raw);
-    } else {
-      cliAppend('phosh: command not found: '+cmd, 'red');
-      cliShowPrompt();
-    }
-  } finally {
-    // restore — but with a delay because some commands are async
-    setTimeout(()=>{
-      appendLine = window._origAppendLine;
-      appendHTML = window._origAppendHTML;
-      showPrompt = window._origShowPrompt;
-    }, 1500);
+/* =============================================================
+   SITE COMMANDS — surface of the personal page
+   ============================================================= */
+CMDS.about = () => {
+  appendLine('── ABOUT ──', 'amber');
+  appendLine('Name      : NanCunChild');
+  appendLine('School    : Xidian University — Microelectronic Science & Engineering');
+  appendLine('Focus     : AI · Security · FPGA · Reverse Engineering');
+  appendLine('Languages : C#, Python, Rust, C++, Go, Flutter, JS, Java/Kotlin, COBOL*');
+  appendLine('Fuel      : coffee + curiosity + kernel panics');
+  appendLine('');
+  appendLine('Scroll up on the page for a less-condensed version.', 'dim');
+  showPrompt();
+};
+CMDS.projects = () => {
+  appendLine('── PROJECTS ──', 'amber');
+  const ps = document.querySelectorAll('.project');
+  if (!ps.length){ appendLine('(no project cards found in the DOM)', 'dim'); return showPrompt(); }
+  ps.forEach((p, i) => {
+    const name = p.dataset.name || ('p'+(i+1));
+    const status = (p.querySelector('.project-status')||{textContent:''}).textContent.trim();
+    const desc = (p.querySelector('.project-desc')||{textContent:''}).textContent.trim();
+    appendHTML('  <span style="color:var(--green)">'+(i+1)+'. '+escapeHTML(name)+'</span> <span style="color:var(--amber)">['+escapeHTML(status)+']</span>');
+    appendHTML('     <span style="color:var(--fg-1)">'+escapeHTML(desc)+'</span>');
+  });
+  appendLine('');
+  appendLine('use "open <name>" to scroll to one on the page.', 'dim');
+  showPrompt();
+};
+CMDS.skills = () => {
+  appendLine('── SKILLS ──', 'amber');
+  const cols = document.querySelectorAll('.skill-col');
+  if (!cols.length){ appendLine('(no skill cards in DOM)', 'dim'); return showPrompt(); }
+  cols.forEach(col => {
+    const h = col.querySelector('h3');
+    if (h) appendHTML('<span style="color:var(--green)">'+escapeHTML(h.textContent.toUpperCase())+'</span>');
+    col.querySelectorAll('.skill-item').forEach(s => {
+      const name = (s.querySelector('.name')||{textContent:''}).textContent;
+      const val  = parseInt((s.querySelector('.val')||{textContent:'0'}).textContent) || 0;
+      const blocks = Math.round(val/5);
+      const bar = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
+      appendHTML('  '+escapeHTML(name).padEnd(14)+' <span style="color:var(--green)">'+bar+'</span> '+val);
+    });
+    appendLine('');
+  });
+  showPrompt();
+};
+CMDS.contact = () => {
+  appendLine('── CONTACT ──', 'amber');
+  appendLine('email  : nancunchild@gmail.com');
+  appendLine('github : github.com/NanCunChild');
+  appendLine('x      : x.com/NanCunChild');
+  appendLine('gpg    : 02959285A9303F1897DA95D89C2A58BAC2CFD595');
+  showPrompt();
+};
+CMDS.neofetch = () => {
+  const art = [
+    '       .--.       ',
+    '      |o_o |      ',
+    '      |:_/ |      ',
+    '     //   \\ \\     ',
+    '    (|     | )    ',
+    "   /'\\_   _/`\\   ",
+    '   \\___)=(___/    ',
+  ];
+  const info = [
+    S.user+'@phosphor',
+    '──────────────────',
+    'OS: Phosphor Linux 2.4',
+    'Kernel: 2.4.18-phosphor',
+    'Shell: phosh 2.0',
+    'Resolution: 640x480',
+    'Terminal: phosphor-term',
+    'CPU: PhosphorCore @ 33 MHz',
+    'GPU: integrated (technically)',
+    'Memory: 12M / 16M',
+  ];
+  for (let i = 0; i < Math.max(art.length, info.length); i++){
+    const a = (art[i] || '                  ').padEnd(20);
+    const inf = info[i] || '';
+    appendHTML('<span style="color:var(--green)">'+escapeHTML(a)+'</span><span style="color:var(--fg-0)">'+escapeHTML(inf)+'</span>');
   }
+  showPrompt();
+};
+CMDS.open = (arg, args) => {
+  const name = args[0];
+  if (!name){ appendLine('usage: open <project-name>', 'red'); return showPrompt(); }
+  const target = document.querySelector('.project[data-name="'+CSS.escape(name)+'"]');
+  if (target){
+    target.scrollIntoView({behavior:'smooth', block:'center'});
+    target.style.transition = 'all 0.3s';
+    target.style.borderColor = 'var(--green)';
+    target.style.boxShadow = '0 0 30px var(--green-glow)';
+    setTimeout(() => { target.style.borderColor = ''; target.style.boxShadow = ''; }, 2000);
+    appendLine('navigating to '+name+'...', 'cyan');
+  } else appendLine('open: no project named "'+name+'"', 'red');
+  showPrompt();
+};
+CMDS.goto = (arg, args) => {
+  const id = args[0];
+  if (!id){ appendLine('usage: goto <hero|about|projects|skills|crt|contact>', 'red'); return showPrompt(); }
+  const el = document.getElementById(id);
+  if (el){ el.scrollIntoView({behavior:'smooth'}); appendLine('jumping to #'+id, 'cyan'); }
+  else appendLine('goto: no section "'+id+'"', 'red');
+  showPrompt();
+};
+CMDS.theme = (arg, args) => {
+  const valid = ['green','amber','ice','blood'];
+  const t = args[0];
+  if (!t || !valid.includes(t)){ appendLine('usage: theme <green|amber|ice|blood>', 'red'); return showPrompt(); }
+  document.body.classList.remove('theme-amber','theme-ice','theme-blood');
+  if (t !== 'green') document.body.classList.add('theme-'+t);
+  appendLine('theme set to: '+t, 'bright');
+  showPrompt();
+};
+CMDS.clear = () => { activeContent.innerHTML = ''; showPrompt(); };
+CMDS.reboot = async () => {
+  appendLine('Broadcast message: rebooting...', 'amber');
+  await sleep(600); powerOff(); await sleep(400); powerOn();
+};
+CMDS.shutdown = async () => {
+  appendLine('System is going down NOW!', 'red');
+  await sleep(800); powerOff();
+};
+CMDS.cli = () => {
+  appendLine('entering full CLI mode...', 'amber');
+  setTimeout(enterCLIMode, 400);
+};
+CMDS.gui = CMDS.exit;
+
+/* ── SSH (network easter egg, no escalation here) ── */
+CMDS.ssh = (arg, args) => {
+  if (!args.length){ appendLine('usage: ssh [user@]hostname', 'red'); return showPrompt(); }
+  const dest = args[args.length-1];
+  appendLine('ssh: connect to host '+dest+' port 22: Connection timed out', 'red');
+  appendLine('(this terminal cannot reach the network. but you can still log in locally — try `su`.)', 'dim');
+  showPrompt();
+};
+
+/* =============================================================
+   CLI FULLSCREEN MODE — same shell, full screen
+   ============================================================= */
+function enterCLIMode(){
+  document.body.classList.add('cli-mode');
+  cliEl.innerHTML = '';
+  activeContent = cliEl;
+  appendLine('Phosphor CLI 2.0 — full screen mode', 'amber');
+  appendLine('All commands work here. Type "gui" or "exit" to return.', 'dim');
+  appendLine('');
+  showPrompt();
+}
+function exitCLIMode(){
+  document.body.classList.remove('cli-mode');
+  activeContent = contentEl;
+  if (currentInput){ currentInput.blur(); }
+  appendLine('returned to GUI.', 'dim');
+  showPrompt();
+}
+const cliOverlayEl = document.querySelector('.cli-overlay');
+if (cliOverlayEl){
+  cliOverlayEl.addEventListener('click', () => { if (currentInput) currentInput.focus(); });
 }
 
 /* =============================================================
@@ -1880,68 +2978,214 @@ function handleCLICommand(raw){
    ============================================================= */
 const mxCanvas = document.getElementById('matrix-canvas');
 const mxCtx = mxCanvas.getContext('2d');
-let mxRaf = null;
-let mxDrops = [];
-let mxCols = 0;
+let mxRaf = null, mxDrops = [], mxCols = 0;
+const mxChars = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン01ABCDEFXYZ';
 function startMatrix(){
   document.body.classList.add('matrix-on');
   resizeMatrix();
   mxRaf = requestAnimationFrame(drawMatrix);
-  window.addEventListener('keydown', stopMatrix, { once:false });
-  window.addEventListener('click', stopMatrix);
-  window.addEventListener('resize', resizeMatrix);
 }
-function stopMatrix(e){
-  if (e && e.type === 'keydown' && e.key !== 'Escape' && document.body.classList.contains('matrix-on')){
-    // any key exits
-  }
+function stopMatrix(){
   if (!document.body.classList.contains('matrix-on')) return;
   document.body.classList.remove('matrix-on');
-  cancelAnimationFrame(mxRaf);
-  window.removeEventListener('click', stopMatrix);
-  window.removeEventListener('resize', resizeMatrix);
+  if (mxRaf) cancelAnimationFrame(mxRaf);
+  mxRaf = null;
 }
 function resizeMatrix(){
   mxCanvas.width = window.innerWidth;
   mxCanvas.height = window.innerHeight;
-  const fs = 16;
-  mxCols = Math.floor(mxCanvas.width / fs);
-  mxDrops = new Array(mxCols).fill(0).map(()=> Math.random() * -50);
+  mxCols = Math.floor(mxCanvas.width / 16);
+  mxDrops = new Array(mxCols).fill(0).map(() => Math.random() * -50);
 }
-const mxChars = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン01ABCDEFXYZ#$%&*+={}[]<>|/\\!?';
 function drawMatrix(){
   mxCtx.fillStyle = 'rgba(0,0,0,0.06)';
-  mxCtx.fillRect(0,0,mxCanvas.width, mxCanvas.height);
+  mxCtx.fillRect(0, 0, mxCanvas.width, mxCanvas.height);
   mxCtx.font = '16px JetBrains Mono, monospace';
-  for (let i=0; i<mxCols; i++){
-    const ch = mxChars[Math.floor(Math.random()*mxChars.length)];
-    const x = i * 16;
-    const y = mxDrops[i] * 16;
-    // head bright
+  for (let i = 0; i < mxCols; i++){
+    const ch = mxChars[Math.floor(Math.random() * mxChars.length)];
+    const x = i * 16, y = mxDrops[i] * 16;
     mxCtx.fillStyle = '#cfffd6';
     mxCtx.fillText(ch, x, y);
-    // body green
-    mxCtx.fillStyle = 'rgba(74,240,122,0.7)';
-    if (mxDrops[i] > 1) mxCtx.fillText(mxChars[Math.floor(Math.random()*mxChars.length)], x, y - 16);
-
+    if (mxDrops[i] > 1){
+      mxCtx.fillStyle = 'rgba(74,240,122,0.7)';
+      mxCtx.fillText(mxChars[Math.floor(Math.random() * mxChars.length)], x, y - 16);
+    }
     if (y > mxCanvas.height && Math.random() > 0.975) mxDrops[i] = 0;
     mxDrops[i] += 1;
   }
   mxRaf = requestAnimationFrame(drawMatrix);
 }
+window.addEventListener('resize', () => { if (document.body.classList.contains('matrix-on')) resizeMatrix(); });
+CMDS.matrix = () => {
+  appendLine('entering the matrix... (press ESC to exit)', 'cyan');
+  setTimeout(startMatrix, 300);
+  showPrompt();
+};
+CMDS.cmatrix = CMDS.matrix;
 
 /* =============================================================
-   Click outside terminal also focuses, and keyboard shortcuts
+   REALBOOT — load v86 + Linux ISO from copy.sh, embed in CRT
+   ============================================================= */
+const V86_LIB     = 'https://copy.sh/v86/build/libv86.js';
+const V86_WASM    = 'https://copy.sh/v86/build/v86.wasm';
+const V86_BIOS    = 'https://copy.sh/v86/bios/seabios.bin';
+const V86_VGABIOS = 'https://copy.sh/v86/bios/vgabios.bin';
+const V86_LINUX   = 'https://copy.sh/v86/images/linux4.iso'; // small Buildroot Linux
+
+let v86Emulator = null;
+let v86Loading = false;
+
+function loadScript(url){
+  return new Promise((resolve, reject) => {
+    if (window.V86 || window.V86Starter) return resolve();
+    const s = document.createElement('script');
+    s.src = url; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('failed to load '+url));
+    document.head.appendChild(s);
+  });
+}
+
+CMDS.realboot = async () => {
+  if (v86Loading){ appendLine('realboot: already loading', 'amber'); return showPrompt(); }
+  if (S.inV86){ appendLine('realboot: already in real Linux mode (press ESC to exit)', 'amber'); return showPrompt(); }
+
+  appendLine('', '');
+  appendLine('── REALBOOT ─────────────────────────────────', 'amber');
+  appendLine('This will fetch v86 (~3 MB) and a real Linux');
+  appendLine('kernel image (~5 MB) from copy.sh CDN, then');
+  appendLine('boot inside this CRT.');
+  appendLine('');
+  appendLine('Press ESC at any time to exit back to phosh.');
+  appendLine('Continue? [y/N] ');
+
+  S.awaitingInput = { type:'text', cb:(v) => {
+    const ok = (v||'').trim().toLowerCase();
+    if (ok !== 'y' && ok !== 'yes'){
+      appendLine('cancelled.', 'dim');
+      return showPrompt();
+    }
+    startRealBoot();
+  }};
+  // Use a normal prompt for y/N (not password)
+  showPrompt();
+};
+
+async function startRealBoot(){
+  if (v86Loading) return;
+  v86Loading = true;
+
+  // Hide JS terminal output, swap to v86 host
+  S.inV86 = true;
+  v86Host.classList.add('active');
+  v86Hint.classList.add('show');
+  contentEl.style.display = 'none';
+
+  // Loading indicator inside v86 host
+  const loading = document.createElement('div');
+  loading.className = 'v86-host-loading';
+  loading.innerHTML = 'BOOTING REAL LINUX...<br><span style="font-size:12px">fetching libv86 from copy.sh</span>';
+  v86Host.appendChild(loading);
+
+  try {
+    await loadScript(V86_LIB);
+  } catch (e){
+    loading.innerHTML = '<span style="color:var(--red)">FAILED TO LOAD libv86.js</span><br><span style="font-size:12px">'+escapeHTML(e.message)+'</span><br><span style="font-size:11px">press ESC to return</span>';
+    v86Loading = false;
+    return;
+  }
+
+  loading.innerHTML = 'BOOTING REAL LINUX...<br><span style="font-size:12px">starting emulator (this takes 10–30s)</span>';
+
+  const Ctor = window.V86 || window.V86Starter;
+  if (!Ctor){
+    loading.innerHTML = '<span style="color:var(--red)">v86 constructor not found after load.</span><br><span style="font-size:11px">press ESC to return</span>';
+    v86Loading = false;
+    return;
+  }
+
+  try {
+    v86Emulator = new Ctor({
+      wasm_path: V86_WASM,
+      memory_size:    64 * 1024 * 1024,
+      vga_memory_size: 4 * 1024 * 1024,
+      screen_container: v86Host,
+      bios:     { url: V86_BIOS },
+      vga_bios: { url: V86_VGABIOS },
+      cdrom:    { url: V86_LINUX },
+      autostart: true,
+    });
+    // Hide loading once first frame is rendered
+    if (v86Emulator.add_listener){
+      v86Emulator.add_listener('emulator-ready', () => { try{ loading.remove(); }catch(_){} });
+    } else {
+      setTimeout(() => { try{ loading.remove(); }catch(_){} }, 6000);
+    }
+  } catch (e){
+    loading.innerHTML = '<span style="color:var(--red)">v86 failed to start: '+escapeHTML(e.message)+'</span><br><span style="font-size:11px">press ESC to return</span>';
+    v86Loading = false;
+    return;
+  }
+
+  v86Loading = false;
+  v86Host.focus();
+}
+
+function stopRealBoot(){
+  if (!S.inV86) return;
+  if (v86Emulator){
+    try { v86Emulator.stop && v86Emulator.stop(); } catch(_){}
+    try { v86Emulator.destroy && v86Emulator.destroy(); } catch(_){}
+    v86Emulator = null;
+  }
+  // Clear v86 host children
+  while (v86Host.firstChild) v86Host.removeChild(v86Host.firstChild);
+  // Restore the inner div+canvas structure for next time
+  const innerDiv = document.createElement('div');
+  const innerCanvas = document.createElement('canvas');
+  v86Host.appendChild(innerDiv);
+  v86Host.appendChild(innerCanvas);
+
+  v86Host.classList.remove('active');
+  v86Hint.classList.remove('show');
+  contentEl.style.display = '';
+  S.inV86 = false;
+
+  appendLine('', '');
+  appendLine('returned from real Linux. welcome back to phosh.', 'amber');
+  showPrompt();
+}
+
+/* =============================================================
+   GLOBAL EVENT LISTENERS
    ============================================================= */
 document.addEventListener('keydown', (e) => {
-  // global ESC: exit matrix / cli
-  if (e.key === 'Escape'){
-    if (document.body.classList.contains('matrix-on')){
-      document.body.classList.remove('matrix-on');
-      cancelAnimationFrame(mxRaf);
+  // Matrix exit: ESC always
+  if (document.body.classList.contains('matrix-on')){
+    if (e.key === 'Escape' || e.key === 'Enter'){
+      e.preventDefault();
+      stopMatrix();
+      return;
     }
   }
+  // Realboot exit on ESC
+  if (S.inV86 && e.key === 'Escape'){
+    e.preventDefault();
+    stopRealBoot();
+    return;
+  }
+  // CLI mode exit on ESC if no awaiting input
+  if (document.body.classList.contains('cli-mode') && e.key === 'Escape' && !S.awaitingInput){
+    // optional: ESC exits cli too. comment out if undesired.
+    exitCLIMode();
+  }
 });
+
+// Click on matrix canvas exits
+mxCanvas.addEventListener('click', stopMatrix);
+
+// Click anywhere on rootOverlay does nothing (it's pure visual)
+rootOverlay.addEventListener('click', (e) => { e.preventDefault(); });
 </script>
 </body>
 </html>
