@@ -1,0 +1,89 @@
+name: Deploy main page to NCC server
+
+on:
+  push:
+    branches: [main]
+    # Only trigger when actual deployable files change
+    paths:
+      - 'index.html'
+      - 'fonts/dist/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}     # manual trigger button on the Actions tab
+
+# If a new push lands while a deploy is mid-flight, cancel the old one
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1     # we don't need git history for deploy
+
+      - name: Sanity check — required files exist
+        run: |
+          set -e
+          test -f index.html || { echo '::error::index.html missing'; exit 1; }
+          test -d fonts/dist || { echo '::error::fonts/dist missing'; exit 1; }
+          test "$(ls -1 fonts/dist/*.woff2 2>/dev/null | wc -l)" -ge 6 \
+            || { echo '::error::expected 6 woff2 fonts in fonts/dist/'; exit 1; }
+          echo 'Files OK:'
+          ls -lh index.html fonts/dist/
+
+      - name: JS syntax check (extract <script> from index.html)
+        run: |
+          awk '/^<script>/{p=1; next} /^<\/script>/{p=0} p' index.html > /tmp/page.js
+          node --check /tmp/page.js
+          echo 'JS syntax OK'
+
+      - name: Setup SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key:        ${{ secrets.SSH_KEY }}
+          known_hosts: 'placeholder'         # will be overwritten by next step
+          if_key_exists: replace
+
+      - name: Add server to known_hosts (verifies host fingerprint)
+        run: |
+          PORT='${{ secrets.SSH_PORT }}'
+          : "${PORT:=22}"
+          ssh-keyscan -p "$PORT" -H '${{ secrets.HOST }}' >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+          ls -la ~/.ssh/
+
+      - name: Deploy index.html
+        run: |
+          PORT='${{ secrets.SSH_PORT }}'
+          : "${PORT:=22}"
+          rsync -avz --chmod=F644 \
+            -e "ssh -p $PORT -o BatchMode=yes" \
+            ./index.html \
+            '${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.DEPLOY_PATH }}/index.html'
+
+      - name: Deploy fonts/dist/ (with --delete inside fonts/dist only)
+        run: |
+          PORT='${{ secrets.SSH_PORT }}'
+          : "${PORT:=22}"
+          rsync -avz --delete --chmod=D755,F644 \
+            -e "ssh -p $PORT -o BatchMode=yes" \
+            ./fonts/dist/ \
+            '${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.DEPLOY_PATH }}/fonts/dist/'
+
+      - name: Smoke test
+        run: |
+          # Try the public URL — change to your real domain
+          url='${{ secrets.SMOKE_URL }}'
+          if [ -n "$url" ]; then
+            curl -fsSL --max-time 10 "$url" > /tmp/page.out
+            grep -q '<title>' /tmp/page.out \
+              && echo '::notice::Site responding (HTML title found)' \
+              || { echo '::warning::Site fetched but no <title> in response'; }
+          else
+            echo '::notice::SMOKE_URL secret not set, skipping smoke test'
+          fi

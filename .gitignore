@@ -1,2 +1,26 @@
+# Local working directories — kept on disk, NOT pushed
 bak/
 Template/
+failed/
+
+# Font masters — only fonts/dist/ is shipped
+fonts/JetBrainsMono-2.304/
+fonts/MajorMonoDisplay/
+fonts/VT323/
+
+# Editor + OS artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Backup snapshots
+*.bak
+*.bak.*
+
+# Build / runtime
+node_modules/
+.cache/
