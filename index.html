@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#07080a" />
 <title>~/dev — kernel panic personal site</title>
 <link rel="preload" href="fonts/dist/JetBrainsMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/dist/VT323-Regular.woff2" as="font" type="font/woff2" crossorigin>
@@ -173,10 +174,10 @@ html { scrollbar-width: thin; scrollbar-color: var(--green-dim) var(--bg-1); }
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.statusbar .sb-item { display: flex; align-items: center; }
+.statusbar .sb-item { display: flex; align-items: center; min-width: 0; }
 .statusbar .sb-spacer { flex: 1; }
 .statusbar .sb-key { color: var(--fg-2); }
-.statusbar .sb-val { color: var(--green); margin-left: 6px; }
+.statusbar .sb-val { color: var(--green); margin-left: 6px; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============================================================
    MAIN LAYOUT
@@ -320,9 +321,26 @@ main {
   );
   pointer-events: none;
 }
-.hero-right .ascii-art {
-  font-size: 14px;
+.hero-right .ascii-donut {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.0;
+  letter-spacing: 0;
+  white-space: pre;
+  color: var(--green);
+  text-shadow: 0 0 4px var(--green-glow), 0 0 10px var(--green-glow);
   margin-bottom: 16px;
+  /* Lock dimensions so animation does not shift layout */
+  min-height: 18em;
+  display: block;
+  user-select: none;
+  /* subtle wobble — gives it a CRT feel without hurting readability */
+  animation: donut-wobble 7s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px var(--green-glow));
+}
+@keyframes donut-wobble {
+  0%, 100% { transform: rotate(0deg) skewY(0deg); }
+  50%      { transform: rotate(0.4deg) skewY(0.3deg); }
 }
 .hero-right .sys-info {
   font-family: var(--f-mono);
@@ -330,11 +348,37 @@ main {
   color: var(--fg-1);
   text-shadow: none;
   line-height: 1.7;
-  border-top: 1px dashed var(--line);
-  padding-top: 14px;
-  margin-top: 14px;
+  padding-top: 6px;
+  margin-top: 8px;
 }
 .hero-right .sys-info .key { color: var(--green); }
+/* Faux shell prompt above the sys-info — sells the whole block as
+   the output of `whois ncc` running as root. */
+.sys-prompt {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--green);
+  text-shadow: 0 0 4px var(--green-glow);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sys-prompt .p-user { color: var(--red); text-shadow: 0 0 4px var(--red-glow); }
+.sys-prompt .p-at   { color: var(--fg-2); text-shadow: none; }
+.sys-prompt .p-host { color: var(--cyan); text-shadow: 0 0 4px var(--cyan); }
+.sys-prompt .p-path { color: var(--amber); text-shadow: 0 0 4px var(--amber); }
+.sys-prompt .p-sym  { color: var(--red); text-shadow: 0 0 4px var(--red-glow); margin-right: 6px; }
+.sys-prompt .p-cmd  { color: var(--green); }
+.sys-prompt .p-cursor {
+  color: var(--green);
+  display: inline-block;
+  margin-left: 1px;
+  animation: blink 1s step-end infinite;
+}
 
 /* corner brackets decoration */
 .bracket {
@@ -925,6 +969,9 @@ body.cli-mode .statusbar { display: none; }
   background: #000;
   z-index: 9000;
   flex-direction: column;
+  /* dvh shrinks when mobile keyboard appears, keeping content above it */
+  height: 100vh;
+  height: 100dvh;
 }
 body.cli-mode .cli-overlay { display: flex; }
 .cli-overlay-screen {
@@ -1019,20 +1066,144 @@ body.theme-blood .hero-right { color: #ff4d5a; text-shadow: 0 0 4px #ff4d5a, 0 0
 /* ============================================================
    RESPONSIVE
    ============================================================ */
-@media (max-width: 880px) {
-  .hero { grid-template-columns: 1fr; gap: 32px; }
-  .about-grid { grid-template-columns: 1fr; }
-  .projects-grid { grid-template-columns: 1fr; }
-  .skills-grid { grid-template-columns: 1fr; }
-  main { padding-left: 16px; padding-right: 16px; }
-  .crt-monitor { padding: 20px 24px 50px; }
-  .crt-bezel { padding: 18px; }
-  .crt-content { padding: 16px; font-size: 14px; }
-  .term-input { font-size: 14px; }
-  .term-typed { font-size: 14px; }
-  .crt-controls { right: 20px; bottom: 12px; gap: 12px; }
-  .power-btn { width: 32px; height: 32px; }
-  .crt-brand { left: 20px; bottom: 16px; font-size: 10px; }
+/* ============================================================
+   RESPONSIVE LAYERS
+   - Tablet      : ≤ 1023px — tighter columns, keep 2-col hero
+   - Mobile      : ≤ 767px  — single column, hide secondary chrome
+   - Small phone : ≤ 479px  — extra compression
+   - Tiny        : ≤ 359px  — last-resort: hide donut entirely
+   ============================================================ */
+@media (max-width: 1023px) {
+  main { padding-left: 24px; padding-right: 24px; }
+  .skills-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+  .about-grid { grid-template-columns: 3fr 2fr; gap: 32px; }
+  .projects-grid { gap: 24px; }
+  section { padding: 64px 0; }
+  .hero { gap: 32px; }
+  .hero-meta { max-width: 100%; }
+  .crt-monitor { padding: 28px 32px 60px; }
+  /* Drop hero cube/donut size on tablets */
+  .hero-right .ascii-donut { font-size: 11px; min-height: 17em; }
+}
+
+@media (max-width: 767px) {
+  /* Layout collapse */
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 40px 0;
+    /* dvh handles iOS Safari URL-bar shrink correctly; falls back to vh */
+    min-height: calc(100vh - 28px);
+    min-height: calc(100dvh - 28px);
+  }
+  .hero h1 { font-size: clamp(2rem, 9vw, 3.4rem); line-height: 1.0; }
+  .hero-sub { font-size: 13px; max-width: 100%; }
+  .hero-meta { grid-template-columns: auto 1fr; max-width: 100%; gap: 4px 14px; }
+  .hero-meta .v { word-break: break-word; }
+  .hero-actions { flex-wrap: wrap; gap: 10px; }
+  .hero-tag { font-size: 10px; padding: 3px 8px; letter-spacing: 1px; }
+
+  .about-grid, .projects-grid, .skills-grid { grid-template-columns: 1fr; gap: 24px; }
+  .skill-item { grid-template-columns: 80px 1fr 32px; }
+  .skill-item .name { font-size: 11px; }
+  .skill-item .val { font-size: 10px; }
+
+  main { padding-left: 16px; padding-right: 16px; padding-top: 28px; }
+  section { padding: 56px 0; }
+  .section-title { font-size: clamp(1.5rem, 6vw, 2.2rem); }
+  .section-label { font-size: 9px; }
+
+  /* Statusbar: hide secondary items on phones, slim chrome */
+  .statusbar { font-size: 10px; gap: 10px; padding: 0 12px; height: 26px; }
+  .statusbar .dot { width: 6px; height: 6px; margin-right: 6px; }
+  .statusbar .sb-uptime-item,
+  .statusbar .sb-load-item { display: none; }
+  /* Adjust main offset for slimmer statusbar */
+  main { padding-top: 26px; }
+
+  /* CRT terminal */
+  .crt-monitor { padding: 16px 20px 50px; border-radius: 18px 18px 28px 28px; }
+  .crt-bezel { padding: 14px; border-radius: 22px / 14%; }
+  .crt-screen { border-radius: 20px / 12%; }
+  .crt-content { padding: 14px; font-size: 13px; }
+  .term-input, .term-typed, .typed-pre, .typed-post { font-size: 13px; }
+  .term-cursor { font-size: 13px; }
+  .crt-controls { right: 14px; bottom: 10px; gap: 10px; }
+  .power-btn { width: 44px; height: 44px; font-size: 16px; } /* iOS HIG tap target */
+  .crt-brand { left: 14px; bottom: 12px; font-size: 9px; letter-spacing: 2px; }
+
+  /* Hero right panel */
+  .hero-right { padding: 18px; font-size: 16px; }
+  .hero-right .ascii-donut {
+    font-size: clamp(7.5px, 2.6vw, 11px);
+    min-height: 16em;
+  }
+  .sys-prompt { font-size: 11px; }
+  .sys-info { font-size: 10.5px; line-height: 1.6; }
+
+  /* CLI fullscreen */
+  .cli-content { padding: 18px; font-size: 14px; }
+
+  /* Project cards */
+  .project { padding: 18px; }
+  .project-name { font-size: 13px; }
+  .project-desc { font-size: 12px; }
+  .project-tags span { font-size: 9px; padding: 2px 6px; }
+
+  /* Stat cards */
+  .about-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat-card { padding: 16px; }
+  .stat-card .num { font-size: clamp(2rem, 7vw, 2.6rem); }
+
+  /* Footer */
+  footer { font-size: 10px; padding: 28px 0; flex-direction: column; gap: 6px; }
+}
+
+@media (max-width: 479px) {
+  .hero h1 { font-size: clamp(1.7rem, 8.5vw, 2.6rem); }
+  .hero-sub { font-size: 12px; line-height: 1.6; }
+  .hero-actions .btn { font-size: 11px; padding: 8px 12px; }
+  .hero-right { padding: 14px; }
+  .hero-right .ascii-donut { font-size: 6.8px; min-height: 13em; }
+  .sys-prompt .p-cmd { display: inline-block; }
+
+  /* Statusbar even slimmer: drop UTC too */
+  .statusbar { gap: 8px; padding: 0 10px; }
+  .statusbar .sb-utc-item { display: none; }
+
+  .crt-content { padding: 12px; font-size: 12px; }
+  .term-input, .term-typed, .typed-pre, .typed-post, .term-cursor { font-size: 12px; }
+
+  section { padding: 48px 0; }
+  .section-title { font-size: clamp(1.3rem, 6vw, 2rem); }
+
+  .stat-card .label { font-size: 9px; }
+  .skill-item { grid-template-columns: 72px 1fr 28px; }
+
+  /* Smaller donut performance: drop framerate via JS-detected media query */
+  /* (handled by FRAME_MS, see donut JS) */
+}
+
+@media (max-width: 359px) {
+  /* Last resort: donut doesn't fit, hide it */
+  .hero-right .ascii-donut { display: none; }
+  .hero-right { padding: 14px; }
+  .statusbar .sb-host-item .sb-key { display: none; } /* just show value */
+}
+
+/* iOS notch-aware safe areas */
+@supports (padding: max(0px)) {
+  .statusbar {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  main {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  footer {
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
+  }
 }
 
 /* ============================================================
@@ -1223,13 +1394,13 @@ body.is-root .crt-content {
 
 <!-- ============================ STATUS BAR ============================ -->
 <div class="statusbar">
-  <span class="sb-item"><span class="dot"></span>SYSTEM ONLINE</span>
-  <span class="sb-item"><span class="sb-key">user@</span><span class="sb-val" id="sb-host">portfolio</span></span>
-  <span class="sb-item"><span class="sb-key">uptime:</span><span class="sb-val" id="sb-uptime">00:00:00</span></span>
+  <span class="sb-item sb-status"><span class="dot"></span>SYSTEM ONLINE</span>
+  <span class="sb-item sb-host-item"><span class="sb-key">user@</span><span class="sb-val" id="sb-host">portfolio</span></span>
+  <span class="sb-item sb-uptime-item"><span class="sb-key">uptime:</span><span class="sb-val" id="sb-uptime">00:00:00</span></span>
   <span class="sb-spacer"></span>
-  <span class="sb-item"><span class="sb-key">utc:</span><span class="sb-val" id="sb-utc">--:--:--</span></span>
-  <span class="sb-item"><span class="sb-key">ip:</span><span class="sb-val">127.0.0.1</span></span>
-  <span class="sb-item"><span class="sb-key">load:</span><span class="sb-val" id="sb-load">0.42</span></span>
+  <span class="sb-item sb-utc-item"><span class="sb-key">utc:</span><span class="sb-val" id="sb-utc">--:--:--</span></span>
+  <span class="sb-item sb-ip-item"><span class="sb-key">ip:</span><span class="sb-val" id="sb-client-ip" data-default="127.0.0.1">__CLIENT_IP__</span></span>
+  <span class="sb-item sb-load-item"><span class="sb-key">load:</span><span class="sb-val" id="sb-load">0.42</span></span>
 </div>
 
 <main>
@@ -1278,15 +1449,9 @@ body.is-root .crt-content {
     </div>
 
     <div class="hero-right">
-<div class="ascii-art">      .-"""""-.
-     /         \
-    |  o     o  |
-    |     ^     |
-    |  \_____/  |
-     \         /
-      '-.....-'
-   [ ROOT@LOCALHOST ]</div>
+<div class="ascii-donut" id="hero-donut" aria-hidden="true"><!-- rotating ASCII donut, JS-driven --></div>
 <div class="sys-info">
+<div class="sys-prompt"><span class="p-user">root</span><span class="p-at">@</span><span class="p-host">nancunchild</span><span class="p-at">:</span><span class="p-path">~</span><span class="p-sym">#</span> <span class="p-cmd">whois ncc</span><span class="p-cursor">_</span></div>
 <span class="key">OS</span>........... Arch BTW
 <span class="key">Kernel</span>....... 7.0.9
 <span class="key">Shell</span>........ zsh + tmux
@@ -1512,8 +1677,8 @@ body.is-root .crt-content {
   <div class="root-banner">
 <pre class="root-ascii">         .         .             .              .         .
     .       *                .            *
-  d8888b.  .d88b.   .d88b.  d888888b
-  88  `8D .8P  Y8. .8P  Y8. `~~88~~'
+   d8888b.  .d88b.   .d88b.  d888888b
+   88  `8D .8P   Y8. .8P  Y8. `~~88~~'
   88oobY' 88    88 88    88    88  
 88`8b   88    88 88    88    88
 88 `88. `8b  d8' `8b  d8'    88
@@ -3414,6 +3579,151 @@ document.addEventListener('keydown', (e) => {
 mxCanvas.addEventListener('click', stopMatrix);
 
 // (rootOverlay click handler is added dynamically in showCelebration)
+
+/* =============================================================
+   CLIENT IP RESOLVER — three fallback layers:
+   1. nginx sub_filter has already replaced __CLIENT_IP__ in HTML
+      (preferred — zero JS cost, see deploy notes).
+   2. JS fetches /api/whoami which nginx serves with $remote_addr.
+   3. Hardcoded fallback "127.0.0.1" so localhost dev still looks fine.
+   ============================================================= */
+(function clientIPInit(){
+  const el = document.getElementById('sb-client-ip');
+  if (!el) return;
+  const raw = el.textContent.trim();
+  const fallback = el.dataset.default || '127.0.0.1';
+
+  // Layer 1: nginx already templated it
+  if (raw && raw !== '__CLIENT_IP__'){
+    return;
+  }
+
+  // Optimistic placeholder while we fetch
+  el.textContent = '...';
+
+  // Layer 2: fetch /api/whoami { ip: "..." }
+  fetch('/api/whoami', { method: 'GET', cache: 'no-store' })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('no endpoint')))
+    .then(d => { el.textContent = (d && d.ip) ? d.ip : fallback; })
+    .catch(() => { el.textContent = fallback; });
+})();
+
+/* =============================================================
+   HERO DONUT — Andy Sloane's donut.c, ported to JS.
+   Renders a 3D torus into ASCII via depth-buffered projection.
+   Pauses when off-screen; respects prefers-reduced-motion.
+   ============================================================= */
+(function donutInit(){
+  const el = document.getElementById('hero-donut');
+  if (!el) return;
+
+  // Screen geometry (chars). Width to height ratio compensated by yFactor in y proj.
+  const cw = 38, ch = 18;
+  // Torus + camera
+  const R1 = 1, R2 = 2, K2 = 5;
+  // K1 controls projected size; tuned so the donut fills ~80% of cw / ch.
+  const K1 = 20;
+  // yFactor compensates for character cell aspect ratio (~1.67 tall:wide).
+  const yFactor = 0.55;
+  // Luminance ramp from dim to bright
+  const RAMP = '.,-~:;=!*#$@';
+
+  let A = 0.8; // x-axis rotation — start tilted so first frame is 3D
+  let B = 1.2; // z-axis rotation
+  let rafId = null;
+  let lastT = 0;
+  // Adaptive frame rate: phones get 18fps to save battery, desktops 28fps
+  const isSmall = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+  const FRAME_MS = 1000 / (isSmall ? 18 : 28);
+
+  const out  = new Uint8Array(cw * ch);
+  const zbuf = new Float32Array(cw * ch);
+
+  function frame(){
+    out.fill(32); // ' '
+    zbuf.fill(0);
+
+    const cosA = Math.cos(A), sinA = Math.sin(A);
+    const cosB = Math.cos(B), sinB = Math.sin(B);
+
+    for (let theta = 0; theta < 6.283; theta += 0.07){
+      const cosTheta = Math.cos(theta), sinTheta = Math.sin(theta);
+      const circleX = R2 + R1 * cosTheta;
+      const circleY = R1 * sinTheta;
+
+      for (let phi = 0; phi < 6.283; phi += 0.02){
+        const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+
+        // Rotate then translate-into-camera
+        const x = circleX * (cosB*cosPhi + sinA*sinB*sinPhi) - circleY * cosA * sinB;
+        const y = circleX * (sinB*cosPhi - sinA*cosB*sinPhi) + circleY * cosA * cosB;
+        const z = K2 + cosA * circleX * sinPhi + circleY * sinA;
+        const ooz = 1 / z;
+
+        const xp = (cw / 2 + K1 * ooz * x) | 0;
+        const yp = (ch / 2 - K1 * ooz * y * yFactor) | 0; // yFactor compensates char aspect
+
+        const L = cosPhi*cosTheta*sinB - cosA*cosTheta*sinPhi - sinA*sinTheta
+                + cosB*(cosA*sinTheta - cosTheta*sinA*sinPhi);
+
+        if (L > 0 && xp >= 0 && xp < cw && yp >= 0 && yp < ch){
+          const idx = xp + cw * yp;
+          if (ooz > zbuf[idx]){
+            zbuf[idx] = ooz;
+            const lumIdx = (L * 8) | 0;
+            out[idx] = RAMP.charCodeAt(lumIdx > 11 ? 11 : (lumIdx < 0 ? 0 : lumIdx));
+          }
+        }
+      }
+    }
+
+    // Build string with row separators
+    let s = '';
+    for (let j = 0; j < ch; j++){
+      s += String.fromCharCode.apply(null, out.subarray(j * cw, (j + 1) * cw));
+      if (j < ch - 1) s += '\n';
+    }
+    return s;
+  }
+
+  function render(){ el.textContent = frame(); }
+
+  function loop(t){
+    if (t - lastT >= FRAME_MS){
+      render();
+      A += 0.05;
+      B += 0.03;
+      lastT = t;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+  function start(){ if (!rafId) rafId = requestAnimationFrame(loop); }
+  function stop(){ if (rafId){ cancelAnimationFrame(rafId); rafId = null; } }
+
+  // Reduced motion: render exactly one frame and stop
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    render();
+    return;
+  }
+
+  // Pause when off-screen for CPU savings
+  if ('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries){ if (e.isIntersecting) start(); else stop(); }
+    }, { threshold: 0.01 });
+    io.observe(el);
+    // Also pause when the tab is hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop();
+      else if (el.getBoundingClientRect().top < window.innerHeight) start();
+    });
+  } else {
+    start();
+  }
+
+  // Initial frame so layout has content immediately
+  render();
+})();
 </script>
 </body>
 </html>
