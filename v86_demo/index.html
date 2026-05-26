@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>browser-linux demo</title>
+<style>
+  body  { font: 14px/1.4 system-ui, sans-serif; margin: 1em; background:#111; color:#ddd; }
+  #term { width: 100%; height: 60vh; background:#000; color:#0f0;
+          font: 13px/1.2 monospace; white-space: pre-wrap; user-select: text;
+          border: 1px solid #333; padding: 0.4em; overflow-y: scroll; }
+  #cmd  { width: 100%; padding: 6px; background:#000; color:#0f0;
+          border: 1px solid #333; font: 13px monospace; }
+  .row     { display: flex; gap: 0.6em; align-items: center; margin: 0.4em 0; }
+  button   { padding: 4px 10px; }
+  small    { color:#888; }
+  #status  { color:#fa0; font-family: monospace; }
+  #counters{ color:#555; font-family: monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h2>browser-linux demo <small>(ttyS0 console + 9P upload)</small></h2>
+
+<div class="row">
+  <button id="boot">Boot</button>
+  <button id="reset">Reset</button>
+  <button id="clear">Clear</button>
+  <input  type="file" id="upload" multiple>
+  <small>Upload puts files into /mnt/web inside the VM.</small>
+</div>
+<div class="row">
+  <span id="status">status: idle</span>
+  <span id="counters">bytes:0</span>
+</div>
+
+<div   id="term"></div>
+<input id="cmd" placeholder="type here, press Enter — bytes go to ttyS0" autofocus>
+
+<!--
+  Asset layout assumed by this demo (relative to this index.html):
+    ./libv86.js       ./v86.wasm       ./seabios.bin
+    ./bzImage         ./rootfs.squashfs
+  Adjust v86Base / imageBase below if you want them in subdirectories.
+-->
+<script src="libv86.js"></script>
+<script src="browser-linux.js"></script>
+<script>
+"use strict";
+
+const counters = document.getElementById("counters");
+
+const linux = new BrowserLinux({
+    v86Base:   "./",
+    imageBase: "./",
+    container: "#term",
+    input:     "#cmd",
+    onStatus:  s => { document.getElementById("status").textContent = "status: " + s; },
+    onByte:    b => {
+        // light-weight counter, debounced on the DOM side
+        if ((linux.outBytes & 1023) === 0) counters.textContent = "bytes:" + linux.outBytes;
+    },
+});
+
+document.getElementById("boot" ).onclick = () => linux.boot();
+document.getElementById("reset").onclick = () => linux.reset();
+document.getElementById("clear").onclick = () => linux.clear();
+
+document.getElementById("upload").addEventListener("change", e => {
+    for (const f of e.target.files) linux.uploadFile(f);
+});
+</script>
+</body>
+</html>

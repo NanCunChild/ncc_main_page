@@ -7,6 +7,7 @@ on:
     paths:
       - 'index.html'
       - 'fonts/dist/**'
+      - 'v86_demo/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch: {}     # manual trigger button on the Actions tab
 
@@ -33,8 +34,14 @@ jobs:
           test -d fonts/dist || { echo '::error::fonts/dist missing'; exit 1; }
           test "$(ls -1 fonts/dist/*.woff2 2>/dev/null | wc -l)" -ge 6 \
             || { echo '::error::expected 6 woff2 fonts in fonts/dist/'; exit 1; }
+          test -d v86_demo || { echo '::error::v86_demo missing'; exit 1; }
+          for f in libv86.js v86.wasm seabios.bin bzImage rootfs.squashfs; do
+            test -f "v86_demo/$f" \
+              || { echo "::error::v86_demo/$f missing"; exit 1; }
+          done
           echo 'Files OK:'
           ls -lh index.html fonts/dist/
+          ls -lh v86_demo/
 
       - name: JS syntax check (extract <script> from index.html)
         run: |
@@ -74,6 +81,16 @@ jobs:
             -e "ssh -p $PORT -o BatchMode=yes" \
             ./fonts/dist/ \
             '${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.DEPLOY_PATH }}/fonts/dist/'
+
+      - name: Deploy v86_demo/ (with --delete inside v86_demo only)
+        run: |
+          PORT='${{ secrets.SSH_PORT }}'
+          : "${PORT:=22}"
+          # ~13 MB total; --delete keeps the remote in sync with the repo.
+          rsync -avz --delete --chmod=D755,F644 \
+            -e "ssh -p $PORT -o BatchMode=yes" \
+            ./v86_demo/ \
+            '${{ secrets.USER }}@${{ secrets.HOST }}:${{ secrets.DEPLOY_PATH }}/v86_demo/'
 
       - name: Smoke test
         run: |

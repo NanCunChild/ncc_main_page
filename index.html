@@ -1310,73 +1310,34 @@ body.is-root .crt-content {
 }
 
 /* ============================================================
-   V86 REAL BOOT HOST (mounted inside CRT screen)
+   V86 REAL BOOT — serial console bridged into the CRT.
+   The emulator runs HEADLESS (no canvas / VGA): its ttyS0
+   byte stream is rendered as plain text into a <pre> inside
+   #crt-content, so it inherits the existing phosphor color,
+   glow, font, scanlines and noise — same look as the JS
+   pseudo-terminal, real Linux underneath.
    ============================================================ */
-.v86-host {
-  position: absolute;
-  inset: 0;
-  z-index: 4; /* below scanlines (5) and glare (6), above crt-content */
-  display: none;
-  background: #000;
-  overflow: hidden;
-  /* Phosphor green tint for v86 output: desaturate -> tint sepia-yellow -> shift hue to green -> boost */
-  filter:
-    grayscale(1)
-    contrast(1.15)
-    brightness(1.1)
-    sepia(1)
-    hue-rotate(50deg)
-    saturate(2.6);
+.v86-stream {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-shadow: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* Containment hints — large textContent updates stay snappy. */
+  contain: content;
+  will-change: contents;
 }
-.v86-host.active { display: block; }
-.v86-host > div {
-  position: absolute;
-  inset: 0;
-  font-family: var(--f-crt), 'VT323', monospace;
-  font-size: 14px;
-  line-height: 14px;
-  white-space: pre;
-  color: #cfffd6;
-  background: #000;
-  overflow: hidden;
-  padding: 6px 8px;
+.v86-loading {
+  color: var(--amber);
+  text-shadow: 0 0 4px var(--amber), 0 0 10px var(--amber);
+  letter-spacing: 1px;
 }
-.v86-host > canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  display: block;
-  background: #000;
-  image-rendering: pixelated;
-}
-.v86-host-loading {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--green);
-  font-family: var(--f-crt);
-  font-size: 18px;
-  text-shadow: 0 0 4px var(--green), 0 0 10px var(--green-glow);
-  text-align: center;
-  z-index: 5;
-  pointer-events: none;
-}
-.v86-host-loading .spinner {
-  display: inline-block;
-  width: 1ch;
-  text-align: left;
-  animation: spin 0.4s steps(4) infinite;
-}
-@keyframes spin {
-  0%   { content: '|'; }
-  25%  { content: '/'; }
-  50%  { content: '-'; }
-  75%  { content: '\\'; }
-  100% { content: '|'; }
-}
+/* Floating exit hint, top-right corner of the CRT screen. */
 .v86-exit-hint {
   position: absolute;
-  bottom: 10px; right: 12px;
+  top: 10px; right: 12px;
   z-index: 8;
   font-family: var(--f-mono);
   font-size: 10px;
@@ -1388,8 +1349,7 @@ body.is-root .crt-content {
   pointer-events: none;
   display: none;
 }
-.v86-host.active ~ .v86-exit-hint,
-.crt-screen .v86-exit-hint.show { display: block; }
+.v86-exit-hint.show { display: block; }
 
 </style>
 </head>
@@ -1616,11 +1576,7 @@ body.is-root .crt-content {
         <div class="crt-bezel">
           <div class="crt-screen off" id="crt-screen">
             <div class="crt-content" id="crt-content"></div>
-            <div class="v86-host" id="v86-host" tabindex="0">
-              <div></div>
-              <canvas></canvas>
-            </div>
-            <div class="v86-exit-hint" id="v86-exit-hint">PRESS [ESC] TO EXIT REAL LINUX</div>
+            <div class="v86-exit-hint" id="v86-exit-hint">PRESS [ESC] TO EXIT — REAL LINUX (v86)</div>
             <div class="crt-noise"></div>
             <div class="crt-flash"></div>
             <div class="crt-hint" id="crt-hint">
@@ -1703,7 +1659,7 @@ body.is-root .crt-content {
        PATH A: john /etc/passwd  -> DES-cracks 4-digit root pw
        PATH B: su maintainer (empty pw) -> sudo su (NOPASSWD)
    - grantRoot: red prompt + terminal lock + celebration
-   - realboot: v86 + Linux ISO from copy.sh, embedded in CRT
+   - realboot: v86 + real Linux (./v86_demo/), bridged into the CRT via ttyS0
    ============================================================= */
 
 /* ── GLOBAL STATE ── */
@@ -1938,7 +1894,6 @@ const ledEl     = document.getElementById('crt-led');
 const hintEl    = document.getElementById('crt-hint');
 const powerBtn  = document.getElementById('power-btn');
 const cliEl     = document.getElementById('cli-content');
-const v86Host   = document.getElementById('v86-host');
 const v86Hint   = document.getElementById('v86-exit-hint');
 const rootOverlay = document.getElementById('root-overlay');
 const fwCanvas    = document.getElementById('fireworks-canvas');
@@ -2187,9 +2142,11 @@ function syncTyped(val){
 }
 
 contentEl.addEventListener('click', () => {
-  if (currentInput){
-    try { currentInput.focus({ preventScroll: true }); }
-    catch(_) { currentInput.focus(); }
+  // In v86 mode the v86 input owns keystrokes; outside it, the JS prompt does.
+  const inp = S.inV86 ? v86Input : currentInput;
+  if (inp){
+    try { inp.focus({ preventScroll: true }); }
+    catch(_) { inp.focus(); }
   }
 });
 
@@ -3421,16 +3378,84 @@ CMDS.matrix = () => {
 CMDS.cmatrix = CMDS.matrix;
 
 /* =============================================================
-   REALBOOT — load v86 + Linux ISO from copy.sh, embed in CRT
-   ============================================================= */
-const V86_LIB     = 'https://copy.sh/v86/build/libv86.js';
-const V86_WASM    = 'https://copy.sh/v86/build/v86.wasm';
-const V86_BIOS    = 'https://copy.sh/v86/bios/seabios.bin';
-const V86_VGABIOS = 'https://copy.sh/v86/bios/vgabios.bin';
-const V86_LINUX   = 'https://copy.sh/v86/images/linux4.iso'; // small Buildroot Linux
+   REALBOOT — bridge JS pseudo-terminal to a real Linux running
+   inside v86. The emulator is HEADLESS (no canvas / VGA): we
+   listen on ttyS0 byte stream and paint it straight into the
+   existing CRT pseudo-terminal so the phosphor look stays
+   intact, but the kernel/shell underneath is real.
 
-let v86Emulator = null;
-let v86Loading = false;
+   Source: ./v86_demo/  (libv86 + bzImage + rootfs.squashfs)
+
+   Performance hardening, because boot/dmesg can dump tens of
+   thousands of bytes in a second:
+     - Single <pre> for the whole stream (no per-line nodes).
+     - Byte-by-byte ANSI/CSI/OSC stripper, state survives calls.
+     - rAF-batched paints; pending strings coalesced when big.
+     - Hard cap on retained text (V86_TERM_CAP), trimmed at a
+       newline boundary so we never split a line in half.
+   ============================================================= */
+const V86_BASE   = './v86_demo/';
+const V86_LIB    = V86_BASE + 'libv86.js';
+const V86_WASM   = V86_BASE + 'v86.wasm';
+const V86_BIOS   = V86_BASE + 'seabios.bin';
+const V86_BZ     = V86_BASE + 'bzImage';
+const V86_ROOT   = V86_BASE + 'rootfs.squashfs';
+const V86_CMDLINE =
+  'root=/dev/sda rootfstype=squashfs ro ' +
+  'console=ttyS0,115200 ' +
+  'noapic nolapic notsc ' +
+  '8250.nr_uarts=1 8250.skip_txen_test=1';
+
+// Cap retained text in the stream <pre>. When exceeded we trim
+// from the head down to V86_TERM_TRIM * V86_TERM_CAP, snapping
+// to the next newline so line layout stays clean.
+const V86_TERM_CAP   = 96 * 1024;
+const V86_TERM_TRIM  = 0.7;
+
+let v86Emulator    = null;
+let v86Loading     = false;
+let v86Stream      = null;   // <pre> output element
+let v86Input       = null;   // <input> for keystrokes
+let v86InputLine   = null;   // wrapping container w/ cursor
+let v86LoadingEl   = null;   // status line during boot
+let v86Pending     = [];
+let v86PendingLen  = 0;
+let v86FlushQueued = false;
+let v86OutBytes    = 0;
+let v86HistIdx     = 0;
+let v86History     = [];
+
+// ANSI escape stripper — byte-by-byte state machine, survives
+// across calls so partial sequences split across two events
+// still parse correctly.
+function makeAnsiStripper(){
+  let state = 0; // 0=normal 1=after-ESC 2=in-CSI 3=in-OSC 4=OSC-saw-ESC
+  return function step(c){
+    switch (state){
+    case 0:
+      if (c === 0x1b){ state = 1; return ''; }
+      // keep \t \n \r; drop all other controls (incl. \b, DEL)
+      if (c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) return '';
+      if (c === 0x7f) return '';
+      return String.fromCharCode(c);
+    case 1: // after ESC
+      if (c === 0x5b /* '[' */){ state = 2; return ''; }
+      if (c === 0x5d /* ']' */){ state = 3; return ''; }
+      state = 0; return '';
+    case 2: // CSI: terminator is 0x40..0x7e
+      if (c >= 0x40 && c <= 0x7e) state = 0;
+      return '';
+    case 3: // OSC: terminator is BEL(0x07) or ESC \
+      if (c === 0x07){ state = 0; return ''; }
+      if (c === 0x1b){ state = 4; return ''; }
+      return '';
+    case 4:
+      state = 0; return '';
+    }
+    return '';
+  };
+}
+let v86Strip = makeAnsiStripper();
 
 function loadScript(url){
   return new Promise((resolve, reject) => {
@@ -3449,10 +3474,11 @@ CMDS.realboot = async () => {
 
   appendLine('', '');
   appendLine('── REALBOOT ─────────────────────────────────', 'amber');
-  appendLine('This will fetch v86 (~3 MB) and a real Linux');
-  appendLine('kernel image (~5 MB) from copy.sh CDN, then');
-  appendLine('boot inside this CRT.');
+  appendLine('Loading v86 + a real Linux kernel into this');
+  appendLine('CRT terminal. The phosphor look stays; the');
+  appendLine('kernel underneath becomes real.');
   appendLine('');
+  appendLine('Source: ./v86_demo/ (libv86 + bzImage + rootfs)');
   appendLine('Press ESC at any time to exit back to phosh.');
   appendLine('Continue? [y/N] ');
 
@@ -3471,61 +3497,257 @@ CMDS.realboot = async () => {
 async function startRealBoot(){
   if (v86Loading) return;
   v86Loading = true;
-
-  // Hide JS terminal output, swap to v86 host
   S.inV86 = true;
-  v86Host.classList.add('active');
-  v86Hint.classList.add('show');
-  contentEl.style.display = 'none';
 
-  // Loading indicator inside v86 host
-  const loading = document.createElement('div');
-  loading.className = 'v86-host-loading';
-  loading.innerHTML = 'BOOTING REAL LINUX...<br><span style="font-size:12px">fetching libv86 from copy.sh</span>';
-  v86Host.appendChild(loading);
+  // Tear down any leftover JS prompt input line so it can't catch keys.
+  if (currentInput && currentInput.parentElement){
+    try { currentInput.parentElement.remove(); } catch(_){}
+  }
+  currentInput = null;
+
+  v86Hint.classList.add('show');
+
+  // Boot status line — replaced/removed once the VM emits its first byte.
+  v86LoadingEl = document.createElement('div');
+  v86LoadingEl.className = 'term-line v86-loading';
+  v86LoadingEl.textContent = '[v86] loading libv86.js …';
+  contentEl.appendChild(v86LoadingEl);
+
+  // The whole VM byte stream lives in a single <pre>. One node, no
+  // per-line divs, cheap textContent assignment per rAF.
+  v86Stream = document.createElement('pre');
+  v86Stream.className = 'v86-stream';
+  contentEl.appendChild(v86Stream);
+
+  // Input line — same visual structure as the JS prompt so the
+  // cursor/typing look matches, but no fake "user@host:~$" prefix
+  // (the real shell over serial will print its own prompt).
+  v86InputLine = document.createElement('div');
+  v86InputLine.className = 'term-input-line';
+  const wrap = document.createElement('span');
+  wrap.className = 'term-typed';
+  const preSp = document.createElement('span'); preSp.className = 'typed-pre';
+  const curSp = document.createElement('span'); curSp.className = 'term-cursor'; curSp.textContent = '\u00A0';
+  const postSp = document.createElement('span'); postSp.className = 'typed-post';
+  wrap.append(preSp, curSp, postSp);
+  const inp = document.createElement('input');
+  inp.className = 'term-input';
+  inp.setAttribute('spellcheck','false');
+  inp.setAttribute('autocomplete','off');
+  inp.setAttribute('autocapitalize','off');
+  v86InputLine.append(wrap, inp);
+  contentEl.appendChild(v86InputLine);
+
+  v86Input = inp;
+  v86Input._pre = preSp; v86Input._cursor = curSp; v86Input._post = postSp; v86Input._typed = wrap;
+  const refresh = () => v86UpdateTypedSplit();
+  inp.addEventListener('input', refresh);
+  inp.addEventListener('keyup', refresh);
+  inp.addEventListener('click', refresh);
+  inp.addEventListener('select', refresh);
+  inp.addEventListener('focus', refresh);
+  inp.addEventListener('keydown', onV86Key);
+
+  contentEl.scrollTop = contentEl.scrollHeight;
+  try { v86Input.focus({ preventScroll: true }); } catch(_) { v86Input.focus(); }
+
+  // Reset stripper / counters / buffers (e.g. on a re-entry).
+  v86Strip       = makeAnsiStripper();
+  v86Pending     = [];
+  v86PendingLen  = 0;
+  v86OutBytes    = 0;
+  v86FlushQueued = false;
+  v86Stream.textContent = '';
 
   try {
     await loadScript(V86_LIB);
   } catch (e){
-    loading.innerHTML = '<span style="color:var(--red)">FAILED TO LOAD libv86.js</span><br><span style="font-size:12px">'+escapeHTML(e.message)+'</span><br><span style="font-size:11px">press ESC to return</span>';
+    if (v86LoadingEl){
+      v86LoadingEl.classList.remove('v86-loading');
+      v86LoadingEl.classList.add('red');
+      v86LoadingEl.textContent = '[v86] FAILED to load libv86: ' + (e && e.message || e);
+    }
     v86Loading = false;
     return;
   }
-
-  loading.innerHTML = 'BOOTING REAL LINUX...<br><span style="font-size:12px">starting emulator (this takes 10–30s)</span>';
 
   const Ctor = window.V86 || window.V86Starter;
   if (!Ctor){
-    loading.innerHTML = '<span style="color:var(--red)">v86 constructor not found after load.</span><br><span style="font-size:11px">press ESC to return</span>';
+    if (v86LoadingEl){
+      v86LoadingEl.classList.remove('v86-loading');
+      v86LoadingEl.classList.add('red');
+      v86LoadingEl.textContent = '[v86] V86 constructor not found after load';
+    }
     v86Loading = false;
     return;
   }
 
+  if (v86LoadingEl) v86LoadingEl.textContent = '[v86] starting emulator (booting kernel — this can take a few seconds) …';
+
   try {
     v86Emulator = new Ctor({
-      wasm_path: V86_WASM,
-      memory_size:    64 * 1024 * 1024,
-      vga_memory_size: 4 * 1024 * 1024,
-      screen_container: v86Host,
-      bios:     { url: V86_BIOS },
-      vga_bios: { url: V86_VGABIOS },
-      cdrom:    { url: V86_LINUX },
-      autostart: true,
+      wasm_path:        V86_WASM,
+      memory_size:      128 * 1024 * 1024,
+      vga_memory_size:  2 * 1024 * 1024,
+      autostart:        true,
+      disable_keyboard: true,    // we drive ttyS0, not the PS/2 KBD
+      disable_mouse:    true,
+      screen_container: null,    // headless — no canvas
+
+      bios:    { url: V86_BIOS },
+      bzimage: { url: V86_BZ },
+      cmdline: V86_CMDLINE,
+      // async:false → single GET, no Range requests. Works with the most
+      // basic HTTP server (e.g. `python3 -m http.server`). Behind nginx,
+      // which serves Range natively, you can flip this back to true to
+      // load the squashfs lazily in chunks.
+      hda:     { url: V86_ROOT, async: false },
+      filesystem: {},
     });
-    // Hide loading once first frame is rendered
+
     if (v86Emulator.add_listener){
-      v86Emulator.add_listener('emulator-ready', () => { try{ loading.remove(); }catch(_){} });
-    } else {
-      setTimeout(() => { try{ loading.remove(); }catch(_){} }, 6000);
+      v86Emulator.add_listener('serial0-output-byte', v86HandleByte);
+      v86Emulator.add_listener('emulator-loaded',    () => v86SetStatus('loaded'));
+      v86Emulator.add_listener('emulator-ready',     () => v86SetStatus('ready'));
+      v86Emulator.add_listener('emulator-started',   () => v86SetStatus('CPU running'));
+      v86Emulator.add_listener('download-progress',  d => {
+        const p = (d.loaded || 0) + '/' + (d.total || '?');
+        v86SetStatus('downloading ' + (d.file_name || '') + ' ' + p);
+      });
+      v86Emulator.add_listener('download-error', () => v86SetStatus('download error'));
     }
   } catch (e){
-    loading.innerHTML = '<span style="color:var(--red)">v86 failed to start: '+escapeHTML(e.message)+'</span><br><span style="font-size:11px">press ESC to return</span>';
+    if (v86LoadingEl){
+      v86LoadingEl.classList.remove('v86-loading');
+      v86LoadingEl.classList.add('red');
+      v86LoadingEl.textContent = '[v86] failed to start: ' + (e && e.message || e);
+    }
     v86Loading = false;
     return;
   }
 
   v86Loading = false;
-  v86Host.focus();
+}
+
+function v86SetStatus(s){
+  if (v86LoadingEl) v86LoadingEl.textContent = '[v86] ' + s;
+}
+
+function v86HandleByte(b){
+  v86OutBytes++;
+  // First real VM byte? Drop the loading-line marker; the stream takes over.
+  if (v86LoadingEl){
+    try { v86LoadingEl.remove(); } catch(_){}
+    v86LoadingEl = null;
+  }
+  const s = v86Strip(b);
+  if (!s) return;
+  v86Pending.push(s);
+  v86PendingLen += s.length;
+  // Coalesce when the queue gets large to keep join() cheap.
+  if (v86PendingLen > 4096){
+    v86Pending = [v86Pending.join('')];
+  }
+  if (!v86FlushQueued){
+    v86FlushQueued = true;
+    requestAnimationFrame(v86Flush);
+  }
+}
+
+function v86Flush(){
+  v86FlushQueued = false;
+  if (v86PendingLen === 0 || !v86Stream) return;
+  const chunk = v86Pending.length === 1 ? v86Pending[0] : v86Pending.join('');
+  v86Pending = [];
+  v86PendingLen = 0;
+
+  // Append chunk; cap total length, trim from head at a newline so we
+  // never slice a line in two (which would look ugly under a stream
+  // of dmesg messages).
+  let text = v86Stream.textContent + chunk;
+  if (text.length > V86_TERM_CAP){
+    const cut = text.length - Math.floor(V86_TERM_CAP * V86_TERM_TRIM);
+    const nl  = text.indexOf('\n', cut);
+    text = (nl >= 0 ? text.slice(nl + 1) : text.slice(cut));
+  }
+  v86Stream.textContent = text;
+  contentEl.scrollTop = contentEl.scrollHeight;
+}
+
+function v86UpdateTypedSplit(){
+  if (!v86Input || !v86Input._pre) return;
+  const v = v86Input.value;
+  const pos = Math.max(0, Math.min(v.length, v86Input.selectionStart != null ? v86Input.selectionStart : v.length));
+  v86Input._pre.textContent = v.slice(0, pos);
+  if (pos < v.length){
+    v86Input._cursor.textContent = v[pos];
+    v86Input._post.textContent  = v.slice(pos + 1);
+  } else {
+    v86Input._cursor.textContent = '\u00A0';
+    v86Input._post.textContent  = '';
+  }
+}
+
+function v86Send(str){
+  if (v86Emulator && typeof v86Emulator.serial0_send === 'function'){
+    v86Emulator.serial0_send(str);
+  }
+}
+
+function onV86Key(e){
+  // Enter: send line + newline. The shell echoes the line back via
+  // serial, so we DON'T paint the value into v86Stream ourselves —
+  // that would double up.
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    const v = v86Input.value;
+    v86Send(v + '\n');
+    if (v.trim()){ v86History.push(v); v86HistIdx = v86History.length; }
+    v86Input.value = '';
+    v86UpdateTypedSplit();
+    return;
+  }
+  // Tab → literal \t, real bash handles completion.
+  if (e.key === 'Tab'){
+    e.preventDefault();
+    v86Send('\t');
+    return;
+  }
+  // Local up/down history (we send line-buffered, so we manage it here).
+  if (e.key === 'ArrowUp'){
+    e.preventDefault();
+    if (!v86History.length) return;
+    v86HistIdx = Math.max(0, v86HistIdx - 1);
+    v86Input.value = v86History[v86HistIdx] || '';
+    try { v86Input.setSelectionRange(v86Input.value.length, v86Input.value.length); } catch(_){}
+    v86UpdateTypedSplit();
+    return;
+  }
+  if (e.key === 'ArrowDown'){
+    e.preventDefault();
+    v86HistIdx = Math.min(v86History.length, v86HistIdx + 1);
+    v86Input.value = v86History[v86HistIdx] || '';
+    try { v86Input.setSelectionRange(v86Input.value.length, v86Input.value.length); } catch(_){}
+    v86UpdateTypedSplit();
+    return;
+  }
+  // Ctrl combos go through directly. Note ^L locally clears the on-screen
+  // backlog AND sends ^L to the shell so its prompt repaints.
+  if (e.ctrlKey && e.key.length === 1){
+    const ch = e.key.toLowerCase();
+    if (ch === 'c'){ e.preventDefault(); v86Send('\x03'); return; }
+    if (ch === 'd'){ e.preventDefault(); v86Send('\x04'); return; }
+    if (ch === 'l'){
+      e.preventDefault();
+      if (v86Stream) v86Stream.textContent = '';
+      v86Send('\x0c');
+      return;
+    }
+    if (ch === 'u'){ e.preventDefault(); v86Input.value = ''; v86UpdateTypedSplit(); return; }
+    if (ch === 'a'){ e.preventDefault(); try{ v86Input.setSelectionRange(0,0);}catch(_){} v86UpdateTypedSplit(); return; }
+    if (ch === 'e'){ e.preventDefault(); const n = v86Input.value.length; try{ v86Input.setSelectionRange(n,n);}catch(_){} v86UpdateTypedSplit(); return; }
+  }
+  // Everything else: native typing into the input element.
 }
 
 function stopRealBoot(){
@@ -3535,17 +3757,18 @@ function stopRealBoot(){
     try { v86Emulator.destroy && v86Emulator.destroy(); } catch(_){}
     v86Emulator = null;
   }
-  // Clear v86 host children
-  while (v86Host.firstChild) v86Host.removeChild(v86Host.firstChild);
-  // Restore the inner div+canvas structure for next time
-  const innerDiv = document.createElement('div');
-  const innerCanvas = document.createElement('canvas');
-  v86Host.appendChild(innerDiv);
-  v86Host.appendChild(innerCanvas);
 
-  v86Host.classList.remove('active');
+  // Tear down v86 DOM and reset buffers.
+  if (v86Stream)    { try { v86Stream.remove();    } catch(_){} v86Stream = null; }
+  if (v86InputLine) { try { v86InputLine.remove(); } catch(_){} v86InputLine = null; }
+  if (v86LoadingEl) { try { v86LoadingEl.remove(); } catch(_){} v86LoadingEl = null; }
+  v86Input       = null;
+  v86Pending     = [];
+  v86PendingLen  = 0;
+  v86FlushQueued = false;
+  v86OutBytes    = 0;
+
   v86Hint.classList.remove('show');
-  contentEl.style.display = '';
   S.inV86 = false;
 
   appendLine('', '');
