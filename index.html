@@ -1328,7 +1328,28 @@ body.is-root .crt-content {
   /* Containment hints — large textContent updates stay snappy. */
   contain: content;
   will-change: contents;
+  /* The inline input line lives inside this <pre> and uses an
+     absolutely-positioned hidden <input> for keystroke capture; this
+     gives that input a proper containing block so focus() can't yank
+     the page scroll. */
+  position: relative;
 }
+/* The streamed bytes live in a dedicated inline span so we can
+   update its textContent without nuking the trailing input line. */
+.v86-stream-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Inline replacement for .term-input-line inside the v86 pre — sits
+   flush right after the last character of the streamed text (usually
+   "$ "), so the cursor follows the prompt instead of dropping to a
+   new line below it. */
+.v86-input-inline {
+  display: inline;
+  position: relative;
+  white-space: pre;
+}
+.v86-input-inline .term-typed { display: inline; }
 .v86-loading {
   color: var(--amber);
   text-shadow: 0 0 4px var(--amber), 0 0 10px var(--amber);
@@ -1350,6 +1371,199 @@ body.is-root .crt-content {
   display: none;
 }
 .v86-exit-hint.show { display: block; }
+
+/* ============================================================
+   PC CASE — appears under the CRT in realboot mode.
+   Acts as the box-shaped desktop case the CRT "sits on top of"
+   (像传统一样垫在 CRT 显示屏下面的方盒子主机). Houses a 3.5"
+   floppy drive bay and a CD-ROM drive bay on the front panel.
+   Hidden by default; revealed when <body> gets .realboot-on.
+   ============================================================ */
+.pc-case {
+  display: none;            /* shown only via body.realboot-on */
+  position: relative;
+  width: min(820px, 94vw);
+  margin: 0 auto 0;         /* no overlap with the CRT bottom */
+  transform: translateY(10px); /* visual nudge down — does NOT grow the layout box */
+  padding: 14px 22px 10px;
+  border-radius: 4px 4px 8px 8px;
+  background:
+    linear-gradient(180deg, #1d1b18 0%, #15130f 60%, #0c0a08 100%);
+  background-image:
+    linear-gradient(180deg, #1d1b18 0%, #15130f 60%, #0c0a08 100%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 -3px 8px rgba(0,0,0,0.6),
+    0 18px 40px rgba(0,0,0,0.7),
+    0 4px 14px rgba(0,0,0,0.5);
+  user-select: none;
+}
+body.realboot-on .pc-case  { display: block; }
+body.realboot-on .crt-base { display: none; }
+
+.pc-case::after {
+  /* base plate, mirrors .crt-base::after */
+  content: '';
+  position: absolute;
+  bottom: -8px; left: 8%; right: 8%;
+  height: 10px;
+  background: #0a0908;
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+.case-front {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 6px;
+}
+.case-spacer { flex: 1; }
+.case-brand {
+  font-family: var(--f-display);
+  color: #3a342c;
+  font-size: 11px;
+  letter-spacing: 4px;
+}
+.case-led {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow), inset 0 0 1px rgba(255,255,255,0.6);
+}
+
+/* Drive bays — pressed-in plastic with a real slot, LED, eject pad. */
+.drive-bay {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #2a2520, #15110d);
+  border: 1px solid #0a0908;
+  border-radius: 3px;
+  padding: 8px 38px 10px 12px;
+  cursor: pointer;
+  font-family: var(--f-mono);
+  color: #6a6357;
+  transition: color 0.1s, box-shadow 0.15s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -2px 4px rgba(0,0,0,0.55);
+}
+.drive-bay:hover {
+  color: #d6cdb1;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -2px 4px rgba(0,0,0,0.55),
+    0 0 14px rgba(74,240,122,0.18);
+}
+.drive-bay:active { transform: translateY(1px); }
+.drive-bay:focus-visible { outline: 1px dashed var(--green); outline-offset: 2px; }
+.drive-bay.busy   { cursor: progress; pointer-events: none; }
+.drive-bay.loaded { color: #d6cdb1; }
+.drive-bay.loaded .bay-led { background: var(--amber); box-shadow: 0 0 8px rgba(255,180,84,0.65); }
+.drive-bay.busy   .bay-led { background: var(--red);   box-shadow: 0 0 8px var(--red-glow); animation: blink 0.5s step-end infinite; }
+
+.bay-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.bay-slot {
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  background: #050403;
+  border-radius: 1px;
+  box-shadow: inset 0 1px 2px #000, inset 0 -1px 1px rgba(255,255,255,0.04);
+}
+.bay-led {
+  position: absolute;
+  top: 9px; right: 12px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #2a2520;
+  box-shadow: inset 0 0 1px rgba(0,0,0,0.8);
+}
+.bay-eject {
+  position: absolute;
+  bottom: 8px; right: 10px;
+  width: 14px; height: 4px;
+  background: #15110d;
+  border: 1px solid #0a0908;
+  border-radius: 1px;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.04);
+}
+.floppy-bay .bay-slot { width: 100px; }
+.cdrom-bay  .bay-slot { width: 160px; height: 5px; }
+
+/* Floating bay menu (file/folder/eject) — phosphor styled. */
+.bay-menu {
+  position: absolute;
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  background: #0c0e10;
+  border: 1px solid var(--green-dim);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.7), 0 0 16px rgba(74,240,122,0.18);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  min-width: 200px;
+  padding: 2px 0;
+}
+.bay-menu.show { display: flex; }
+.bay-menu button {
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--green);
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.bay-menu button:hover  { background: rgba(74,240,122,0.12); }
+.bay-menu button.danger { color: var(--amber); }
+.bay-menu button.danger:hover { background: rgba(255,180,84,0.12); }
+.bay-menu .menu-divider { height: 1px; background: var(--green-dim); opacity: 0.4; margin: 2px 0; }
+
+/* Status strip — what's "loaded" in each drive. */
+.case-status {
+  display: flex;
+  gap: 22px;
+  margin-top: 8px;
+  padding: 6px 8px 2px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--fg-2);
+}
+.status-line { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.status-icon { color: var(--green-dim); }
+.status-key  { color: var(--amber); }
+.status-val  {
+  color: var(--green);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+.status-val.empty { color: var(--fg-2); font-style: italic; }
+
+@media (max-width: 767px) {
+  .pc-case { padding: 10px 12px 8px; margin-top: -6px; }
+  .case-front { gap: 10px; }
+  .drive-bay { padding: 6px 30px 8px 10px; }
+  .bay-label { font-size: 8px; letter-spacing: 1px; }
+  .floppy-bay .bay-slot { width: 70px; }
+  .cdrom-bay  .bay-slot { width: 100px; }
+  .case-brand { font-size: 9px; letter-spacing: 2px; }
+  .case-status { font-size: 9px; gap: 14px; }
+  .status-val  { max-width: 160px; }
+  .bay-menu    { min-width: 170px; font-size: 10px; }
+  .bay-menu button { padding: 7px 10px; }
+}
 
 </style>
 </head>
@@ -1592,6 +1806,50 @@ body.is-root .crt-content {
         </div>
       </div>
       <div class="crt-base"></div>
+
+      <!-- PC CASE: appears in realboot mode — houses a 3.5" floppy bay
+           and a CD-ROM bay. Both are wired into the v86 9P share so
+           uploads land at /mnt/web/<name> inside the VM. Only ONE item
+           per drive — inserting a second ejects the first (the classic
+           "biggest flaw" of these media). -->
+      <div class="pc-case" id="pc-case" aria-hidden="true">
+        <div class="case-front">
+          <button class="drive-bay floppy-bay" id="floppy-bay" type="button"
+                  aria-label="3.5-inch floppy drive (A:)">
+            <span class="bay-label">3.5″ FDD · A:</span>
+            <span class="bay-slot"></span>
+            <span class="bay-led"></span>
+            <span class="bay-eject"></span>
+          </button>
+          <button class="drive-bay cdrom-bay" id="cdrom-bay" type="button"
+                  aria-label="CD-ROM drive (D:)">
+            <span class="bay-label">CD-ROM · D:</span>
+            <span class="bay-slot"></span>
+            <span class="bay-led"></span>
+            <span class="bay-eject"></span>
+          </button>
+          <span class="case-spacer"></span>
+          <span class="case-led" title="POWER"></span>
+          <span class="case-brand">PHOSPHOR-PC</span>
+        </div>
+        <div class="case-status" aria-live="polite">
+          <div class="status-line">
+            <span class="status-icon">▣</span>
+            <span class="status-key">A:</span>
+            <span class="status-val empty" id="floppy-status">no disk</span>
+          </div>
+          <div class="status-line">
+            <span class="status-icon">◉</span>
+            <span class="status-key">D:</span>
+            <span class="status-val empty" id="cdrom-status">no disc</span>
+          </div>
+        </div>
+        <div class="bay-menu" id="floppy-menu" role="menu" aria-label="Floppy drive options"></div>
+        <div class="bay-menu" id="cdrom-menu"  role="menu" aria-label="CD-ROM drive options"></div>
+        <input type="file" id="floppy-file-input" hidden>
+        <input type="file" id="floppy-dir-input"  hidden webkitdirectory directory mozdirectory>
+        <input type="file" id="cdrom-file-input"  hidden accept=".iso,.img,.bin">
+      </div>
     </div>
   </section>
 
@@ -2040,14 +2298,24 @@ function getPromptHTML(){
 function showPrompt(){
   if (S.isLocked) return; // post-root lock — no more input
   const isPwd = !!(S.awaitingInput && S.awaitingInput.type === 'password');
+  // Custom inline prompt (e.g. "Continue? [y/N] ") instead of user@host:cwd$
+  const inlinePrompt = (S.awaitingInput && typeof S.awaitingInput.prompt === 'string')
+    ? S.awaitingInput.prompt
+    : null;
 
   const line = document.createElement('div');
   line.className = 'term-input-line';
 
-  // Prompt: hidden visually for password input, visible otherwise.
-  const promptHTML = isPwd
-    ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
-    : '<span class="term-prompt">'+getPromptHTML()+'</span>';
+  // Prompt: hidden visually for password input, custom string for inline prompts,
+  // default user@host:cwd$ otherwise.
+  let promptHTML;
+  if (isPwd){
+    promptHTML = '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>';
+  } else if (inlinePrompt != null){
+    promptHTML = '<span class="term-prompt">'+escapeHTML(inlinePrompt)+'</span>';
+  } else {
+    promptHTML = '<span class="term-prompt">'+getPromptHTML()+'</span>';
+  }
 
   // Wrap with split parts so cursor can sit at selectionStart
   const wrap = document.createElement('span');
@@ -2101,9 +2369,14 @@ function freezePrompt(val, masked){
   if (!currentInput) return;
   const line = currentInput.parentElement;
   const display = masked ? '' : escapeHTML(val);
-  const promptHTML = masked
-    ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
-    : '<span class="term-prompt">'+getPromptHTML()+'</span>';
+  // Preserve whichever prompt was actually rendered (default user@host, an
+  // opacity-0 password prompt, or a custom inline prompt like "Continue? [y/N] ").
+  const promptSpan = line.querySelector('.term-prompt');
+  const promptHTML = promptSpan
+    ? promptSpan.outerHTML
+    : (masked
+        ? '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>'
+        : '<span class="term-prompt">'+getPromptHTML()+'</span>');
   line.innerHTML = promptHTML + '<span class="term-typed" style="color:var(--green)">'+display+'</span>';
   currentInput = null;
 }
@@ -2730,22 +3003,27 @@ CMDS.echo = (arg, args, raw) => {
 };
 CMDS.touch = (arg, args) => {
   if (!args.length){ appendLine('touch: missing operand', 'red'); return showPrompt(); }
+  // The phosphor rootfs is mounted read-only — match real Linux output.
   for (const f of args){
-    const path = resolvePath(f);
-    if (!FS[path]) FS[path] = { type:'f', perm:'-rw-r--r--', owner:S.user, group:S.user, content:'' };
+    if (f.startsWith('-')) continue;
+    appendLine("touch: cannot touch '"+f+"': Read-only file system", 'red');
   }
   showPrompt();
 };
 CMDS.mkdir = (arg, args) => {
   if (!args.length){ appendLine('mkdir: missing operand', 'red'); return showPrompt(); }
+  // The phosphor rootfs is mounted read-only — match real Linux output.
   for (const d of args){
-    const path = resolvePath(d);
-    if (FS[path]) appendLine("mkdir: cannot create directory '"+d+"': File exists", 'red');
-    else FS[path] = { type:'d', perm:'drwxr-xr-x', owner:S.user, group:S.user, children:[] };
+    if (d.startsWith('-')) continue;
+    appendLine("mkdir: cannot create directory '"+d+"': Read-only file system", 'red');
   }
   showPrompt();
 };
 CMDS.rm = (arg, args, raw) => {
+  if(raw.includes('--no-preserve-root')){
+    appendLine('interesting, this machine belongs to NCC, do not destroy it plz.', 'red');
+    return showPrompt();
+  }
   if (raw.includes('-rf') && (raw.includes(' /') || raw.includes(' *'))){
     appendLine("rm: it is dangerous to operate recursively on '/'", 'red');
     appendLine('rm: use --no-preserve-root to override this failsafe.', 'red');
@@ -3414,7 +3692,8 @@ const V86_TERM_TRIM  = 0.7;
 
 let v86Emulator    = null;
 let v86Loading     = false;
-let v86Stream      = null;   // <pre> output element
+let v86Stream      = null;   // <pre> output element (contains text span + input line)
+let v86StreamText  = null;   // <span> inside the pre that actually holds the streamed text
 let v86Input       = null;   // <input> for keystrokes
 let v86InputLine   = null;   // wrapping container w/ cursor
 let v86LoadingEl   = null;   // status line during boot
@@ -3480,17 +3759,21 @@ CMDS.realboot = async () => {
   appendLine('');
   appendLine('Source: ./v86_demo/ (libv86 + bzImage + rootfs)');
   appendLine('Press ESC at any time to exit back to phosh.');
-  appendLine('Continue? [y/N] ');
 
-  S.awaitingInput = { type:'text', cb:(v) => {
-    const ok = (v||'').trim().toLowerCase();
-    if (ok !== 'y' && ok !== 'yes'){
-      appendLine('cancelled.', 'dim');
-      return showPrompt();
+  // Inline prompt — the user's "y" sits right after the question
+  // instead of underneath a fresh user@host:~$ shell prompt.
+  S.awaitingInput = {
+    type:'text',
+    prompt:'Continue? [y/N] ',
+    cb:(v) => {
+      const ok = (v||'').trim().toLowerCase();
+      if (ok !== 'y' && ok !== 'yes'){
+        appendLine('cancelled.', 'dim');
+        return showPrompt();
+      }
+      startRealBoot();
     }
-    startRealBoot();
-  }};
-  // Use a normal prompt for y/N (not password)
+  };
   showPrompt();
 };
 
@@ -3505,7 +3788,18 @@ async function startRealBoot(){
   }
   currentInput = null;
 
+  // If the user kicked off realboot from full-screen CLI mode, drop back
+  // to the CRT before we attach the v86 DOM. The v86 stream + exit hint
+  // both live inside the CRT screen, and #crt-content is hidden in
+  // cli-mode (body.cli-mode main { display:none }), which previously
+  // made it look like the page froze on `realboot` after `cli`.
+  if (document.body.classList.contains('cli-mode')){
+    document.body.classList.remove('cli-mode');
+    activeContent = contentEl;
+  }
+
   v86Hint.classList.add('show');
+  pcCaseShow();
 
   // Boot status line — replaced/removed once the VM emits its first byte.
   v86LoadingEl = document.createElement('div');
@@ -3515,15 +3809,22 @@ async function startRealBoot(){
 
   // The whole VM byte stream lives in a single <pre>. One node, no
   // per-line divs, cheap textContent assignment per rAF.
+  // The input line sits INSIDE the pre, after a dedicated text span,
+  // so the cursor naturally follows whatever the shell just printed
+  // (usually "$ ") instead of starting on a new line below it.
   v86Stream = document.createElement('pre');
   v86Stream.className = 'v86-stream';
+  v86StreamText = document.createElement('span');
+  v86StreamText.className = 'v86-stream-text';
+  v86Stream.appendChild(v86StreamText);
   contentEl.appendChild(v86Stream);
 
   // Input line — same visual structure as the JS prompt so the
   // cursor/typing look matches, but no fake "user@host:~$" prefix
-  // (the real shell over serial will print its own prompt).
-  v86InputLine = document.createElement('div');
-  v86InputLine.className = 'term-input-line';
+  // (the real shell over serial will print its own prompt). It is a
+  // <span> (display:inline) so it sits flush after the streamed text.
+  v86InputLine = document.createElement('span');
+  v86InputLine.className = 'v86-input-inline';
   const wrap = document.createElement('span');
   wrap.className = 'term-typed';
   const preSp = document.createElement('span'); preSp.className = 'typed-pre';
@@ -3536,7 +3837,7 @@ async function startRealBoot(){
   inp.setAttribute('autocomplete','off');
   inp.setAttribute('autocapitalize','off');
   v86InputLine.append(wrap, inp);
-  contentEl.appendChild(v86InputLine);
+  v86Stream.appendChild(v86InputLine);
 
   v86Input = inp;
   v86Input._pre = preSp; v86Input._cursor = curSp; v86Input._post = postSp; v86Input._typed = wrap;
@@ -3557,7 +3858,7 @@ async function startRealBoot(){
   v86PendingLen  = 0;
   v86OutBytes    = 0;
   v86FlushQueued = false;
-  v86Stream.textContent = '';
+  v86StreamText.textContent = '';
 
   try {
     await loadScript(V86_LIB);
@@ -3656,7 +3957,7 @@ function v86HandleByte(b){
 
 function v86Flush(){
   v86FlushQueued = false;
-  if (v86PendingLen === 0 || !v86Stream) return;
+  if (v86PendingLen === 0 || !v86StreamText) return;
   const chunk = v86Pending.length === 1 ? v86Pending[0] : v86Pending.join('');
   v86Pending = [];
   v86PendingLen = 0;
@@ -3664,13 +3965,13 @@ function v86Flush(){
   // Append chunk; cap total length, trim from head at a newline so we
   // never slice a line in two (which would look ugly under a stream
   // of dmesg messages).
-  let text = v86Stream.textContent + chunk;
+  let text = v86StreamText.textContent + chunk;
   if (text.length > V86_TERM_CAP){
     const cut = text.length - Math.floor(V86_TERM_CAP * V86_TERM_TRIM);
     const nl  = text.indexOf('\n', cut);
     text = (nl >= 0 ? text.slice(nl + 1) : text.slice(cut));
   }
-  v86Stream.textContent = text;
+  v86StreamText.textContent = text;
   contentEl.scrollTop = contentEl.scrollHeight;
 }
 
@@ -3739,7 +4040,7 @@ function onV86Key(e){
     if (ch === 'd'){ e.preventDefault(); v86Send('\x04'); return; }
     if (ch === 'l'){
       e.preventDefault();
-      if (v86Stream) v86Stream.textContent = '';
+      if (v86StreamText) v86StreamText.textContent = '';
       v86Send('\x0c');
       return;
     }
@@ -3762,6 +4063,7 @@ function stopRealBoot(){
   if (v86Stream)    { try { v86Stream.remove();    } catch(_){} v86Stream = null; }
   if (v86InputLine) { try { v86InputLine.remove(); } catch(_){} v86InputLine = null; }
   if (v86LoadingEl) { try { v86LoadingEl.remove(); } catch(_){} v86LoadingEl = null; }
+  v86StreamText  = null;
   v86Input       = null;
   v86Pending     = [];
   v86PendingLen  = 0;
@@ -3769,12 +4071,402 @@ function stopRealBoot(){
   v86OutBytes    = 0;
 
   v86Hint.classList.remove('show');
+  pcCaseHide();
   S.inV86 = false;
 
   appendLine('', '');
   appendLine('returned from real Linux. welcome back to phosh.', 'amber');
   showPrompt();
 }
+
+/* =============================================================
+   PC CASE — floppy + CD-ROM bays under the CRT (realboot only).
+   - Floppy: one slot, accepts a single FILE OR a single FOLDER.
+     Inserting a second item ejects the first ("biggest flaw").
+   - CD-ROM: accepts a single .iso (or .img/.cdr/.bin).
+   Both are wired to the v86 9P share. The VM mounts that share at
+   /mnt/web, so uploading "foo.txt" appears inside the VM at
+   /mnt/web/foo.txt, and folder "myproj/" at /mnt/web/myproj/.
+   ============================================================= */
+let floppyEntry = null;   // { kind:'file'|'dir', path, name } currently in the slot
+let cdromEntry  = null;   // { kind:'iso',          path, name } currently in the drive
+
+const pcCaseEl       = document.getElementById('pc-case');
+const floppyBay      = document.getElementById('floppy-bay');
+const cdromBay       = document.getElementById('cdrom-bay');
+const floppyMenu     = document.getElementById('floppy-menu');
+const cdromMenu      = document.getElementById('cdrom-menu');
+const floppyFileInp  = document.getElementById('floppy-file-input');
+const floppyDirInp   = document.getElementById('floppy-dir-input');
+const cdromFileInp   = document.getElementById('cdrom-file-input');
+const floppyStatus   = document.getElementById('floppy-status');
+const cdromStatus    = document.getElementById('cdrom-status');
+
+function pcCaseShow(){
+  document.body.classList.add('realboot-on');
+  if (pcCaseEl) pcCaseEl.setAttribute('aria-hidden','false');
+}
+function pcCaseHide(){
+  document.body.classList.remove('realboot-on');
+  if (pcCaseEl) pcCaseEl.setAttribute('aria-hidden','true');
+  // Reset state — VM is gone, so the 9P content is too.
+  floppyEntry = null;
+  cdromEntry  = null;
+  setFloppyStatus(null);
+  setCdromStatus(null);
+  if (floppyBay) floppyBay.classList.remove('loaded','busy');
+  if (cdromBay)  cdromBay .classList.remove('loaded','busy');
+  hideMenus();
+}
+
+function setFloppyStatus(text){
+  if (!floppyStatus) return;
+  if (!text){ floppyStatus.textContent = 'no disk'; floppyStatus.classList.add('empty'); }
+  else      { floppyStatus.textContent = text;      floppyStatus.classList.remove('empty'); }
+}
+function setCdromStatus(text){
+  if (!cdromStatus) return;
+  if (!text){ cdromStatus.textContent = 'no disc'; cdromStatus.classList.add('empty'); }
+  else      { cdromStatus.textContent = text;      cdromStatus.classList.remove('empty'); }
+}
+function hideMenus(){
+  if (floppyMenu) floppyMenu.classList.remove('show');
+  if (cdromMenu)  cdromMenu .classList.remove('show');
+}
+
+// 9P helpers --------------------------------------------------------
+function pcFs9p(){ return v86Emulator && v86Emulator.fs9p; }
+
+// Recursively delete a file or directory tree at `path` (absolute,
+// relative to the 9P share root, e.g. "/myproj"). Best-effort — if
+// any node is busy in the VM, we skip and move on. Uses fs9p.DeleteNode
+// when available (handles directories recursively in one call).
+async function removePathRecursive(path){
+  const fs = pcFs9p(); if (!fs) return;
+  if (!path || path === '/' || path === '') return;
+  // Prefer the built-in recursive delete if exposed; fall back to manual walk.
+  try {
+    if (typeof fs.DeleteNode === 'function'){
+      fs.DeleteNode(path);
+      return;
+    }
+  } catch (e) {
+    try { console.warn('[pc-case] DeleteNode failed, falling back', path, e); } catch(_){}
+  }
+  const r = fs.SearchPath(path);
+  if (!r || r.id === -1) return;
+  if (fs.IsDirectory && fs.IsDirectory(r.id)){
+    const children = (fs.read_dir && fs.read_dir(path)) || [];
+    for (const child of children){
+      await removePathRecursive(path.replace(/\/+$/,'') + '/' + child);
+    }
+  }
+  const parts = path.replace(/\/+$/,'').split('/');
+  const name  = parts.pop();
+  try { fs.Unlink(r.parentid, name); } catch(_){}
+}
+
+// Ensure every directory along `dirPath` exists. Uses SearchPath's
+// own .parentid (which is correctly populated even for non-existent
+// segments), so we don't have to track the parent inode ourselves —
+// that's what was tripping up nested folder uploads.
+function ensureDir9p(dirPath){
+  const fs = pcFs9p(); if (!fs) return -1;
+  const segs = dirPath.split('/').filter(Boolean);
+  let cur = '';
+  for (let i = 0; i < segs.length; i++){
+    cur += '/' + segs[i];
+    const r = fs.SearchPath(cur);
+    if (!r) return -1;
+    if (r.id !== -1) continue;             // already exists
+    if (r.parentid === -1) return -1;      // parent doesn't exist either
+    try {
+      fs.CreateDirectory(segs[i], r.parentid);
+    } catch (e) {
+      try { console.warn('[pc-case] mkdir failed', cur, e); } catch(_){}
+      return -1;
+    }
+  }
+  const final = fs.SearchPath(dirPath);
+  return (final && final.id !== -1) ? final.id : -1;
+}
+
+function pcFmtBytes(n){
+  if (n < 1024)             return n + ' B';
+  if (n < 1024*1024)        return (n/1024).toFixed(1) + ' KB';
+  if (n < 1024*1024*1024)   return (n/(1024*1024)).toFixed(2) + ' MB';
+  return (n/(1024*1024*1024)).toFixed(2) + ' GB';
+}
+
+function pcSanitiseSeg(s){
+  return String(s||'').replace(/[\x00-\x1f/\\]/g,'_').slice(0, 255);
+}
+
+// Print a small note into the v86 stream so the user sees feedback
+// inside the CRT, without disturbing whatever the shell is doing.
+function appendV86Note(s){
+  if (v86StreamText){
+    v86StreamText.textContent += '\n' + s + '\n';
+    if (contentEl) contentEl.scrollTop = contentEl.scrollHeight;
+  } else {
+    try { console.log(s); } catch(_){}
+  }
+}
+
+// Insert / eject ---------------------------------------------------
+async function insertFloppyFile(file){
+  if (!pcFs9p()){
+    appendV86Note('[floppy] 9P share not ready yet — try again after the kernel finishes booting.');
+    return;
+  }
+  floppyBay.classList.add('busy');
+  try {
+    try { await ejectFloppy(true); } catch(_){}
+    const safe = pcSanitiseSeg(file.name) || 'file';
+    const path = '/' + safe;
+    const buf  = new Uint8Array(await file.arrayBuffer());
+    await v86Emulator.create_file(path, buf);
+    floppyEntry = { kind:'file', path, name:safe };
+    floppyBay.classList.add('loaded');
+    setFloppyStatus(safe + '  (' + pcFmtBytes(buf.length) + ')');
+    appendV86Note('[floppy] inserted "' + safe + '" → /mnt/web/' + safe);
+  } catch (e){
+    appendV86Note('[floppy] insert failed: ' + (e && e.message || e));
+  } finally {
+    // Always clear busy, no matter what went wrong above.
+    floppyBay.classList.remove('busy');
+  }
+}
+
+async function insertFloppyFolder(fileList){
+  if (!fileList || !fileList.length) return;
+  if (!pcFs9p()){
+    appendV86Note('[floppy] 9P share not ready yet — try again after the kernel finishes booting.');
+    return;
+  }
+  // Single top-level try/finally guarantees the busy state — and therefore
+  // the blinking red LED — is always cleared, even if something below
+  // throws synchronously or asynchronously.
+  floppyBay.classList.add('busy');
+  try {
+    try { await ejectFloppy(true); } catch(_){}
+
+    const first = fileList[0];
+    const top   = (first.webkitRelativePath || first.name).split('/')[0] || 'folder';
+    const safeTop = pcSanitiseSeg(top) || 'folder';
+    appendV86Note('[floppy] reading folder "' + safeTop + '/" (' + fileList.length + ' file(s)) …');
+
+    // Pre-create the top-level directory so we have a stable inode to
+    // attach children under, and so eject (which targets the top dir)
+    // works even if individual files fail.
+    const topId = ensureDir9p('/' + safeTop);
+    if (topId < 0){
+      appendV86Note('[floppy] FAILED — could not create folder root "' + safeTop + '"');
+      return;
+    }
+    floppyEntry = { kind:'dir', path:'/' + safeTop, name:safeTop };
+
+    // Sort by depth so parent directories are always created before
+    // their children — webkitdirectory's order is implementation-defined.
+    const fileArr = Array.from(fileList);
+    fileArr.sort((a, b) => {
+      const ad = (a.webkitRelativePath || a.name).split('/').length;
+      const bd = (b.webkitRelativePath || b.name).split('/').length;
+      return ad - bd;
+    });
+
+    let total = 0, count = 0, failed = 0, lastTick = -1;
+    for (let i = 0; i < fileArr.length; i++){
+      const f = fileArr[i];
+      try {
+        const segs = (f.webkitRelativePath || f.name)
+          .split('/').map(pcSanitiseSeg).filter(Boolean);
+        if (!segs.length) continue;
+        segs[0] = safeTop;                       // pin top-level under our chosen name
+        const fileName = segs.pop();
+        if (!fileName) continue;
+        if (segs.length > 1){                    // need intermediate dirs
+          const dirOk = ensureDir9p('/' + segs.join('/'));
+          if (dirOk < 0) throw new Error('mkdir -p /' + segs.join('/') + ' failed');
+        }
+        const fullPath = '/' + segs.join('/') + '/' + fileName;
+        const buf = new Uint8Array(await f.arrayBuffer());
+        await v86Emulator.create_file(fullPath, buf);
+        total += buf.length;
+        count++;
+      } catch (e){
+        failed++;
+        try { console.warn('[floppy] file failed:', f.webkitRelativePath || f.name, e); } catch(_){}
+      }
+      // Live progress: every 50 files (or at the end) update the status
+      // line and yield to the event loop so the UI stays responsive.
+      if (i - lastTick >= 50 || i === fileArr.length - 1){
+        setFloppyStatus(safeTop + '/  (loading ' + (count + failed) + '/' + fileArr.length + ' …)');
+        lastTick = i;
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    if (count > 0){
+      floppyBay.classList.add('loaded');
+      setFloppyStatus(safeTop + '/  (' + count + ' files, ' + pcFmtBytes(total) + ')');
+      appendV86Note('[floppy] inserted folder "' + safeTop + '/" → /mnt/web/' + safeTop + '/  ('
+        + count + ' files' + (failed ? ', ' + failed + ' failed' : '') + ')');
+    } else {
+      // 0 files made it through — roll back so the bay is empty rather
+      // than showing a phantom directory the user can't actually use.
+      floppyEntry = null;
+      try { await removePathRecursive('/' + safeTop); } catch(_){}
+      setFloppyStatus(null);
+      appendV86Note('[floppy] FAILED — 0 files inserted (' + failed + ' failed)');
+    }
+  } catch (e){
+    appendV86Note('[floppy] folder insert error: ' + (e && e.message || e));
+    try { console.error('[floppy] folder insert', e); } catch(_){}
+  } finally {
+    floppyBay.classList.remove('busy');
+  }
+}
+
+async function insertCDROM(file){
+  // Hard-reject anything that isn't an iso/img/bin BEFORE we touch the
+  // 9P share or apply the busy state — even if the user managed to
+  // bypass the file-picker's accept= filter, JS turns it down here.
+  const lower = (file && file.name || '').toLowerCase();
+  if (!/\.(iso|img|bin)$/.test(lower)){
+    appendV86Note('[cd-rom] REJECTED — only .iso / .img / .bin accepted (got "' + (file && file.name) + '")');
+    return;
+  }
+  if (!pcFs9p()){
+    appendV86Note('[cd-rom] 9P share not ready yet — try again after the kernel finishes booting.');
+    return;
+  }
+  cdromBay.classList.add('busy');
+  try {
+    try { await ejectCDROM(true); } catch(_){}
+    const safe = pcSanitiseSeg(file.name) || 'disc.iso';
+    const path = '/' + safe;
+    const buf  = new Uint8Array(await file.arrayBuffer());
+    await v86Emulator.create_file(path, buf);
+    cdromEntry = { kind:'iso', path, name:safe };
+    cdromBay.classList.add('loaded');
+    setCdromStatus(safe + '  (' + pcFmtBytes(buf.length) + ')');
+    appendV86Note('[cd-rom] inserted "' + safe + '" → /mnt/web/' + safe
+      + '   tip: `mount -o loop /mnt/web/' + safe + ' /mnt/cd` (if your VM has a free mountpoint)');
+  } catch (e){
+    appendV86Note('[cd-rom] insert failed: ' + (e && e.message || e));
+  } finally {
+    cdromBay.classList.remove('busy');
+  }
+}
+
+async function ejectFloppy(silent){
+  if (!floppyEntry) return;
+  floppyBay.classList.add('busy');
+  const name = floppyEntry.name;
+  try { await removePathRecursive(floppyEntry.path); } catch(_){}
+  if (!silent) appendV86Note('[floppy] ejected "' + name + '"');
+  floppyEntry = null;
+  floppyBay.classList.remove('busy','loaded');
+  setFloppyStatus(null);
+}
+
+async function ejectCDROM(silent){
+  if (!cdromEntry) return;
+  cdromBay.classList.add('busy');
+  const name = cdromEntry.name;
+  try { await removePathRecursive(cdromEntry.path); } catch(_){}
+  if (!silent) appendV86Note('[cd-rom] ejected "' + name + '"');
+  cdromEntry = null;
+  cdromBay.classList.remove('busy','loaded');
+  setCdromStatus(null);
+}
+
+// Bay menus --------------------------------------------------------
+function buildFloppyMenu(){
+  if (!floppyMenu) return;
+  floppyMenu.innerHTML = '';
+  const mk = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
+    b.addEventListener('click', () => { hideMenus(); fn(); });
+    floppyMenu.appendChild(b);
+  };
+  mk('▸ Insert FILE…',   '', () => floppyFileInp && floppyFileInp.click());
+  mk('▸ Insert FOLDER…', '', () => floppyDirInp  && floppyDirInp .click());
+  if (floppyEntry){
+    const div = document.createElement('div'); div.className = 'menu-divider'; floppyMenu.appendChild(div);
+    mk('⏏ Eject "' + floppyEntry.name + '"', 'danger', () => ejectFloppy(false));
+  }
+}
+function buildCdromMenu(){
+  if (!cdromMenu) return;
+  cdromMenu.innerHTML = '';
+  const mk = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; if (cls) b.className = cls;
+    b.addEventListener('click', () => { hideMenus(); fn(); });
+    cdromMenu.appendChild(b);
+  };
+  mk('▸ Insert ISO…', '', () => cdromFileInp && cdromFileInp.click());
+  if (cdromEntry){
+    const div = document.createElement('div'); div.className = 'menu-divider'; cdromMenu.appendChild(div);
+    mk('⏏ Eject "' + cdromEntry.name + '"', 'danger', () => ejectCDROM(false));
+  }
+}
+
+function positionMenuNear(menu, btn){
+  if (!menu || !btn || !pcCaseEl) return;
+  const r   = btn.getBoundingClientRect();
+  const pcr = pcCaseEl.getBoundingClientRect();
+  // Position relative to .pc-case (which is position: relative).
+  const left = Math.max(0, Math.min(r.left - pcr.left, pcr.width - 220));
+  menu.style.left = left + 'px';
+  menu.style.top  = (r.bottom - pcr.top + 6) + 'px';
+}
+
+if (floppyBay) floppyBay.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const wasOpen = floppyMenu && floppyMenu.classList.contains('show');
+  hideMenus();
+  if (wasOpen) return;          // toggle: second click closes
+  buildFloppyMenu();
+  positionMenuNear(floppyMenu, floppyBay);
+  floppyMenu.classList.add('show');
+});
+if (cdromBay) cdromBay.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const wasOpen = cdromMenu && cdromMenu.classList.contains('show');
+  hideMenus();
+  if (wasOpen) return;
+  buildCdromMenu();
+  positionMenuNear(cdromMenu, cdromBay);
+  cdromMenu.classList.add('show');
+});
+
+document.addEventListener('click', (e) => {
+  if (!pcCaseEl) return;
+  if (!pcCaseEl.contains(e.target)) hideMenus();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideMenus();
+});
+
+if (floppyFileInp) floppyFileInp.addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) insertFloppyFile(f);
+  e.target.value = '';
+});
+if (floppyDirInp) floppyDirInp.addEventListener('change', (e) => {
+  const list = e.target.files;
+  if (list && list.length) insertFloppyFolder(list);
+  e.target.value = '';
+});
+if (cdromFileInp) cdromFileInp.addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) insertCDROM(f);
+  e.target.value = '';
+});
 
 /* =============================================================
    GLOBAL EVENT LISTENERS
