@@ -1573,7 +1573,7 @@ body.realboot-on .crt-base { display: none; }
 <div class="statusbar">
   <span class="sb-item sb-status"><span class="dot"></span>SYSTEM ONLINE</span>
   <span class="sb-item sb-host-item"><span class="sb-key">user@</span><span class="sb-val" id="sb-host">portfolio</span></span>
-  <span class="sb-item sb-uptime-item"><span class="sb-key">uptime:</span><span class="sb-val" id="sb-uptime">00:00:00</span></span>
+  <span class="sb-item sb-uptime-item"><span class="sb-key">uptime:</span><span class="sb-val" id="sb-uptime" data-boot-epoch="__SERVER_BOOT_EPOCH__">00:00:00</span></span>
   <span class="sb-spacer"></span>
   <span class="sb-item sb-utc-item"><span class="sb-key">utc:</span><span class="sb-val" id="sb-utc">--:--:--</span></span>
   <span class="sb-item sb-ip-item"><span class="sb-key">ip:</span><span class="sb-val" id="sb-client-ip" data-default="127.0.0.1">__CLIENT_IP__</span></span>
@@ -1872,7 +1872,7 @@ body.realboot-on .crt-base { display: none; }
 
   <footer>
     <span>built with <span class="heart">♥</span> and one shell of regret · no frameworks were harmed</span>
-    <span>v2.7.4 — <span id="footer-year"></span> · last_commit: just_now</span>
+    <span><span id="footer-version">__BUILD_VERSION__</span> — <span id="footer-year"></span> · last_commit: <span id="footer-commit-date">__BUILD_COMMIT_DATE__</span></span>
   </footer>
 
 </main>
@@ -1921,7 +1921,17 @@ body.realboot-on .crt-base { display: none; }
    ============================================================= */
 
 /* ── GLOBAL STATE ── */
-const startTime = Date.now();
+const startTime = (() => {
+  // nginx may substitute __SERVER_BOOT_EPOCH__ on the #sb-uptime element with
+  // a unix epoch (in seconds). If it did, anchor uptime to the server boot —
+  // the page will then tick locally without further server round-trips.
+  // If the placeholder is still literal (local preview / nginx not configured),
+  // fall back to the page-load time.
+  const el  = document.getElementById('sb-uptime');
+  const raw = el && el.getAttribute('data-boot-epoch');
+  const ok  = raw && /^\d{6,}$/.test(raw);
+  return ok ? parseInt(raw, 10) * 1000 : Date.now();
+})();
 const S = {
   isOn: false,
   booting: false,
@@ -2164,8 +2174,12 @@ function pad(n){ return n.toString().padStart(2, '0'); }
 function updateStatusBar(){
   const now = new Date();
   const utc = pad(now.getUTCHours())+':'+pad(now.getUTCMinutes())+':'+pad(now.getUTCSeconds());
-  const u = Math.floor((Date.now()-startTime)/1000);
-  const up = pad(Math.floor(u/3600))+':'+pad(Math.floor((u%3600)/60))+':'+pad(u%60);
+  const u = Math.max(0, Math.floor((Date.now()-startTime)/1000));
+  const days = Math.floor(u / 86400);
+  const h = Math.floor((u % 86400) / 3600);
+  const m = Math.floor((u % 3600) / 60);
+  const s = u % 60;
+  const up = (days > 0 ? days + 'd ' : '') + pad(h) + ':' + pad(m) + ':' + pad(s);
   const utcEl = document.getElementById('sb-utc');
   const upEl  = document.getElementById('sb-uptime');
   const loadEl = document.getElementById('sb-load');
@@ -2175,6 +2189,17 @@ function updateStatusBar(){
 }
 setInterval(updateStatusBar, 1000); updateStatusBar();
 const fy = document.getElementById('footer-year'); if (fy) fy.textContent = new Date().getFullYear();
+
+/* ── FOOTER BUILD INFO ──
+   __BUILD_VERSION__ and __BUILD_COMMIT_DATE__ are substituted by GitHub Actions
+   at deploy time (see .github/workflows/deploy.yml). If the placeholders are
+   still present, we are running locally — show sensible defaults. */
+(() => {
+  const fv = document.getElementById('footer-version');
+  if (fv && fv.textContent.indexOf('__BUILD_VERSION__') !== -1) fv.textContent = 'dev';
+  const fc = document.getElementById('footer-commit-date');
+  if (fc && fc.textContent.indexOf('__BUILD_COMMIT_DATE__') !== -1) fc.textContent = 'just_now';
+})();
 
 /* ── POWER ── */
 powerBtn.addEventListener('click', () => {
@@ -2308,11 +2333,14 @@ function showPrompt(){
 
   // Prompt: hidden visually for password input, custom string for inline prompts,
   // default user@host:cwd$ otherwise.
+  // NB: an inline prompt (e.g. "Password: " or "[sudo] password for X: ")
+  // takes priority over the hidden-prompt password mode so the cursor sits
+  // immediately after the label on the same line.
   let promptHTML;
-  if (isPwd){
-    promptHTML = '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>';
-  } else if (inlinePrompt != null){
+  if (inlinePrompt != null){
     promptHTML = '<span class="term-prompt">'+escapeHTML(inlinePrompt)+'</span>';
+  } else if (isPwd){
+    promptHTML = '<span class="term-prompt" style="opacity:0">'+getPromptHTML()+'</span>';
   } else {
     promptHTML = '<span class="term-prompt">'+getPromptHTML()+'</span>';
   }
@@ -2868,13 +2896,15 @@ CMDS.uname = (arg, args) => {
   showPrompt();
 };
 CMDS.uptime = () => {
-  const u = Math.floor((Date.now() - startTime) / 1000);
-  const h = Math.floor(u/3600), m = Math.floor((u%3600)/60);
+  const u = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+  const days = Math.floor(u / 86400);
+  const h = Math.floor((u % 86400) / 3600), m = Math.floor((u % 3600) / 60);
   const t = new Date().toTimeString().slice(0,8);
+  const dayPart = days > 0 ? days + (days === 1 ? ' day, ' : ' days, ') : '';
   const l1 = (0.2 + Math.random()*0.5).toFixed(2);
   const l2 = (0.1 + Math.random()*0.4).toFixed(2);
   const l3 = (0.1 + Math.random()*0.3).toFixed(2);
-  appendLine(' '+t+' up '+h+':'+pad(m)+', 1 user, load average: '+l1+', '+l2+', '+l3);
+  appendLine(' '+t+' up '+dayPart+h+':'+pad(m)+', 1 user, load average: '+l1+', '+l2+', '+l3);
   showPrompt();
 };
 CMDS.date = () => { appendLine(new Date().toString()); showPrompt(); };
@@ -3153,9 +3183,8 @@ CMDS.su = (arg, args) => {
     return;
   }
 
-  // Otherwise, prompt for password
-  appendLine('Password: ');
-  S.awaitingInput = { type:'password', cb:(pw) => {
+  // Otherwise, prompt for password (inline so the cursor sits right after "Password: ")
+  S.awaitingInput = { type:'password', prompt:'Password: ', cb:(pw) => {
     if (pw === KNOWN_PASSWORDS[target]){
       switchUser(target);
       if (target === 'root') grantRoot('su');
@@ -3233,9 +3262,8 @@ CMDS.sudo = (arg, args, raw) => {
     runAsRoot();
     return;
   }
-  // Need password (current user's password)
-  appendLine('[sudo] password for '+S.user+': ');
-  S.awaitingInput = { type:'password', cb:(pw) => {
+  // Need password (current user's password) — inline so cursor stays on the same line
+  S.awaitingInput = { type:'password', prompt:'[sudo] password for '+S.user+': ', cb:(pw) => {
     const expected = KNOWN_PASSWORDS[S.user];
     if (expected !== undefined && pw === expected && expected !== ''){
       runAsRoot();

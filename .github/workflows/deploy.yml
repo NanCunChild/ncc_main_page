@@ -3,6 +3,7 @@ name: Deploy main page to NCC server
 on:
   push:
     branches: [main]
+    tags: ['v*']
     # Only trigger when actual deployable files change
     paths:
       - 'index.html'
@@ -26,6 +27,36 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1     # we don't need git history for deploy
+          fetch-tags: true   # but we DO need tags for `git describe`
+
+      - name: Stamp build metadata into index.html
+        # Replaces __BUILD_VERSION__ and __BUILD_COMMIT_DATE__ placeholders.
+        # Version is the tag at HEAD if any (e.g. v1.2.3), else the short SHA.
+        # Commit date is the committer date in YYYY-MM-DD form.
+        run: |
+          set -euo pipefail
+          if VERSION="$(git describe --tags --exact-match HEAD 2>/dev/null)"; then
+            echo "Tagged release: $VERSION"
+          else
+            VERSION="$(git rev-parse --short HEAD)"
+            echo "No tag at HEAD, falling back to short SHA: $VERSION"
+          fi
+          COMMIT_DATE="$(git log -1 --format=%cs)"   # YYYY-MM-DD
+          echo "VERSION=$VERSION"
+          echo "COMMIT_DATE=$COMMIT_DATE"
+          # Use @ as the sed delimiter so version strings containing '/' are safe.
+          sed -i \
+            -e "s@__BUILD_VERSION__@${VERSION}@g" \
+            -e "s@__BUILD_COMMIT_DATE__@${COMMIT_DATE}@g" \
+            index.html
+          # Verify substitution actually happened.
+          if grep -q '__BUILD_VERSION__\|__BUILD_COMMIT_DATE__' index.html; then
+            echo '::error::build placeholders still present in index.html'
+            grep -n '__BUILD_VERSION__\|__BUILD_COMMIT_DATE__' index.html || true
+            exit 1
+          fi
+          echo 'Footer line after stamping:'
+          grep -E 'footer-version|footer-commit-date' index.html | head -n 1 || true
 
       - name: Sanity check — required files exist
         run: |
